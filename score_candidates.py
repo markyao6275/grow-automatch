@@ -81,15 +81,11 @@ def score_candidate(candidate_data):
         I2: Platform
         I3: Mobility
         I4(GPT Tags): Enterprise Sales, Account Management, Business Development
-        I1: Digital
-        I2: Platform
-        I3: Ride-Hailing
         F1: GTM
         F2: Sales
         F3: Enterprise
         F4: Relationship Management, B2B Sales
-        F2: Account Executive
-        F3: Other
+       
 
         Your tasks:
         1. Compare and match each candidate's I# and F# with each job's I# and F# according to the **Table/Algorithm** below.
