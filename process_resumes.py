@@ -1,26 +1,51 @@
 import json
 import os
-from datetime import datetime
 
-from PyPDF2 import PdfReader
 from openai_api import call_openai_api
-from openai.types.chat import (
-    ChatCompletionToolParam,
-)
+from openai.types.chat import ChatCompletionToolParam
+from pdf_parser import parse_pdf_to_text
 
 
-def parse_pdf_to_text(pdf_path):
+def process_resumes(folder_path):
     """
-    Extract text from a PDF file using PyPDF2.
+    1. Iterates over all PDFs in a folder.
+    2. Extracts text from each PDF.
+    3. Sends text to OpenAI API.
+    4. Writes candidate profiles to a JSON file.
     """
-    text_content = []
-    with open(pdf_path, "rb") as f:
-        reader = PdfReader(f)
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text_content.append(page_text)
-    return "\n".join(text_content)
+    # Create output directory if it doesn't exist
+    output_dir = "output/candidates"
+    os.makedirs(output_dir, exist_ok=True)
+
+    for filename in os.listdir(folder_path):
+        if filename.lower().endswith(".pdf"):
+            pdf_path = os.path.join(folder_path, filename)
+            print(f"Processing PDF: {pdf_path}")
+
+            pdf_text = parse_pdf_to_text(pdf_path)
+
+            # If PDF text is too large, you may need to chunk it.
+            # For simplicity, we're sending it all at once here.
+            try:
+                candidate_profile = {"filename": pdf_path}
+
+                general_info = get_general_info(pdf_text)
+                industry_labels = generate_industry_labels(pdf_text)
+                function_labels = generate_function_labels(pdf_text)
+
+                candidate_profile.update(
+                    {**general_info, **industry_labels, **function_labels}
+                )
+
+                # Generate timestamp filename
+                output_file = os.path.join(output_dir, f"{filename}.json")
+
+                # Write candidate_profiles to JSON file
+                with open(output_file, "w", encoding="utf-8") as f:
+                    json.dump(candidate_profile, f, ensure_ascii=False, indent=2)
+
+            except Exception as e:
+                print(f"Error calling OpenAI API for {filename}: {e}")
 
 
 def get_general_info(pdf_text):
@@ -244,48 +269,3 @@ def generate_function_labels(pdf_text):
     return call_openai_api(
         system_prompt, pdf_text, tools=[generate_function_labels_tool]
     )
-
-
-def process_resumes(folder_path):
-    """
-    1. Iterates over all PDFs in a folder.
-    2. Extracts text from each PDF.
-    3. Sends text to OpenAI API.
-    4. Writes candidate profiles to a JSON file.
-    """
-    candidate_profiles = []
-
-    for filename in os.listdir(folder_path):
-        if filename.lower().endswith(".pdf"):
-            pdf_path = os.path.join(folder_path, filename)
-            print(f"Processing PDF: {pdf_path}")
-
-            pdf_text = parse_pdf_to_text(pdf_path)
-
-            # If PDF text is too large, you may need to chunk it.
-            # For simplicity, we're sending it all at once here.
-            try:
-                candidate_profile = {"filename": pdf_path}
-
-                general_info = get_general_info(pdf_text)
-                industry_labels = generate_industry_labels(pdf_text)
-                function_labels = generate_function_labels(pdf_text)
-
-                candidate_profile.update(
-                    {**general_info, **industry_labels, **function_labels}
-                )
-                candidate_profiles.append(candidate_profile)
-            except Exception as e:
-                print(f"Error calling OpenAI API for {filename}: {e}")
-
-    # Create output directory if it doesn't exist
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
-
-    # Generate timestamp filename
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(output_dir, f"candidates_{timestamp}.json")
-
-    # Write candidate_profiles to JSON file
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(candidate_profiles, f, ensure_ascii=False, indent=2)
