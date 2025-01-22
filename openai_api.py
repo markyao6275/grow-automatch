@@ -1,3 +1,4 @@
+import json
 import os
 
 from openai import OpenAI
@@ -47,4 +48,4 @@ def call_openai_api(
         return None
 
     answer = completion.choices[0].message.tool_calls[0].function.arguments
-    return answer
+    return json.loads(answer)
