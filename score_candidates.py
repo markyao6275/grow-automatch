@@ -94,37 +94,42 @@ def score_candidate(candidate_data):
         Your tasks:
         1. Compare and match each candidate's I# and F# with each job's I# and F# according to the **Table/Algorithm** below.
         2. Select the highest possible evaluation label (e.g., 'Perfect Match' is higher than 'Strong Match', etc.) that emerges from **any** F#/I# combination.
-        3. Use the function `score_candidate` to provide the final numeric score.
+        3. Use the function `score_candidate` to provide a final numeric score for the candidate. Use the score range corresponding to the highest possible evaluation label (#2) to guide what range your score should be in.
 
         ** Table/Algorithm: **
-        - F1 / I1 = Too Basic    (score = 30)
-        - F1 / I2 = Iffy Match   (score = 50)
-        - F1 / I3 = Iffy Match   (score = 50)
-        - F1 / I4 = Iffy Match   (score = 50)
+        - F1 / I1 = Too Basic    (score = 0-30)
+        - F1 / I2 = Iffy Match   (score = 31-50)
+        - F1 / I3 = Iffy Match   (score = 31-50)
+        - F1 / I4 = Iffy Match   (score = 31-50)
 
-        - F2 / I1 = Iffy Match   (score = 50)
-        - F2 / I2 = Good Match   (score = 70)
-        - F2 / I3 = Good Match   (score = 70)
-        - F2 / I4 = Out of the box (score = 90)
+        - F2 / I1 = Iffy Match   (score = 31-50)
+        - F2 / I2 = Good Match   (score = 51-70)
+        - F2 / I3 = Good Match   (score = 51-70)
+        - F2 / I4 = Out of the box (score = 71-90)
 
-        - F3 / I1 = Iffy Match   (score = 50)
-        - F3 / I2 = Good Match   (score = 70)
-        - F3 / I3 = Strong Match (score = 85)
-        - F3 / I4 = Perfect Match (score = 95)
+        - F3 / I1 = Iffy Match   (score = 31-50)
+        - F3 / I2 = Good Match   (score = 51-70)
+        - F3 / I3 = Strong Match (score = 71-85)
+        - F3 / I4 = Perfect Match (score = 86-100)
 
         ** Numeric scores for each label: **
         - Too Basic -> 30
-        - Iffy Match -> 50
-        - Good Match -> 70
-        - Strong Match -> 85
-        - Perfect Match -> 95
-        - Out of the box -> 90
+        - Iffy Match -> 31-50
+        - Good Match -> 51-70
+        - Strong Match -> 71-85
+        - Perfect Match -> 86-100
+        - Out of the box -> 71-90
 
         Important details:
         - The candidate's final evaluation is the highest match found.
 
         Once you determine the highest score, call:
         score_candidate(<score>)
+
+        Example:
+        - If the candidate has F2="Sales" and I2="Platform" → That combination is 'Good Match' (51-70).
+        - If the same candidate also has F3="Enterprise" and I4="Enterprise Sales" → That combination is 'Perfect Match' (86-100).
+        - The final result is 86-100 (Perfect Match), because 86-100 is higher than 51-70.
 
         Be sure to follow these instructions precisely. 
         """
