@@ -229,8 +229,16 @@ def generate_function_labels(pdf_text):
         "Reference the following Function grid and select the best fit option.\n"
         "Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag keywords for better sorting.\n"
         "You cannot change rows. For example,anyone in F2 Sales must be in AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other for F3.\n\n"
-        "I1: GTM; I2: Sales; I3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other\n"
-        "I1: GTM; I2: Marketing; I3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
+        "F1: GTM; F2: Sales; F3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other\n"
+        "F1: GTM; F2: Marketing; F3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
+        "F1: GTM; F2: Consulting/PS; F3: Delivery, Implementation, Customer Success, TAM, Pre-sales\n"
+        "F1: GTM; F2: Operations; F3: Strategy, CS, Analytics, Product, Project, Procurement, Supply Chain\n"
+        "F1: Corporate; F2: Finance & Accounting; F3: FP&A, Compensation, M&A\n"
+        "F1: Corporate; F2: HR & Admin; F3: HRBP, Recruiting, Office Manager, Onboarding, Training\n"
+        "F1: Corporate; F2: Legal & Compliance; F3: Legal, Compilance, GR, Policy\n"
+        "F1: Corporate; F2: Internal IT; F3: IT Support, Onboarding\n"
+        "F1: Product & Eng; F2: Computer Science; F3: Product, UX, SWE, QA, DevOps\n"
+        "F1: Product & Eng; F2: Physics; F3: Electrical, Mechanical, Embedded etc.\n"
     )
 
     return call_openai_api(
@@ -276,7 +284,7 @@ def process_resumes(folder_path):
 
     # Generate timestamp filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(output_dir, f"responses_{timestamp}.json")
+    output_file = os.path.join(output_dir, f"candidates_{timestamp}.json")
 
     # Write candidate_profiles to JSON file
     with open(output_file, "w", encoding="utf-8") as f:
