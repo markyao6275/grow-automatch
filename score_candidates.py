@@ -22,6 +22,7 @@ def score_candidates(folder_path):
 
                 score = score_candidate(json.dumps(candidate_data, indent=2))
                 candidate_data["score"] = score.get("score", 0)
+                candidate_data.pop("resume_text")
 
                 scored_candidates.append(candidate_data)
             except Exception as e:
@@ -70,63 +71,82 @@ def score_candidate(candidate_data):
 
     # Include the "table" and instructions in the system_prompt:
     system_prompt = f"""
-        You are a helpful assistant scoring a candidate for a job at Uber as an Enterprise Sales professional in Tokyo, Japan.
+You are a helpful assistant scoring a candidate for a job at Uber as an Enterprise Sales professional in Tokyo, Japan.
 
-        ** Job information: **
-        company: Uber
-        position: Enterprise Sales
-        country: Japan
-        city: Tokyo
-        I1: Digital
-        I2: Platform
-        I3: Mobility
-        I4(GPT Tags): Enterprise Sales, Account Management, Business Development
-        F1: GTM
-        F2: Sales
-        F3: Enterprise
-        F4: Relationship Management, B2B Sales
-       
+**Job information:**
+company: Uber
+position: Enterprise Sales
+country: Japan
+city: Tokyo
 
-        Your tasks:
-        1. Compare and match each candidate's I# and F# with each job's I# and F# according to the **Table/Algorithm** below.
-        2. Select the highest possible evaluation label (e.g., 'Perfect Match' is higher than 'Strong Match', etc.) that emerges from **any** F#/I# combination.
-        3. Use the function `score_candidate` to provide a final numeric score for the candidate. Use the score range corresponding to the highest possible evaluation label (#2) to guide what range your score should be in.
+I1: Digital
+I2: Platform
+I3: Mobility
+I4 (GPT Tags): Enterprise Sales, Account Management, Business Development
 
-        ** Table/Algorithm: **
-        - F1 / I1 = Too Basic    (score = 0-30)
-        - F1 / I2 = Iffy Match   (score = 31-50)
-        - F1 / I3 = Iffy Match   (score = 31-50)
-        - F1 / I4 = Iffy Match   (score = 31-50)
+F1: GTM
+F2: Sales
+F3: Enterprise
+F4: Relationship Management, B2B Sales
 
-        - F2 / I1 = Iffy Match   (score = 31-50)
-        - F2 / I2 = Good Match   (score = 51-70)
-        - F2 / I3 = Good Match   (score = 51-70)
-        - F2 / I4 = Out of the box (score = 71-90)
+---
 
-        - F3 / I1 = Iffy Match   (score = 31-50)
-        - F3 / I2 = Good Match   (score = 51-70)
-        - F3 / I3 = Strong Match (score = 71-85)
-        - F3 / I4 = Perfect Match (score = 86-100)
+**YOUR TASK**  
+1. **Determine the final matched 'I' label (I1 - I4):**  
+   - Compare the job's I1 to the candidate's I1.  
+     - If they match, move on to compare I2.  
+     - If I2 matches, move on to compare I3.  
+     - If I3 matches, move on to compare I4.  
+     - **Stop** at the first mismatch (or if you reach I4 successfully).  
+   - The final "I" level is whichever label you matched last before a mismatch (or I4 if they all match).
 
-        ** Numeric scores for each label: **
-        - Too Basic -> 30
-        - Iffy Match -> 31-50
-        - Good Match -> 51-70
-        - Strong Match -> 71-85
-        - Perfect Match -> 86-100
-        - Out of the box -> 71-90
+2. **Determine the final matched 'F' label (F1 - F4):**  
+   - Do the same step-by-step process for F1 → F2 → F3 → F4.  
+   - Stop at the first mismatch, or end at F4 if they keep matching.  
 
-        Important details:
-        - The candidate's final evaluation is the highest match found.
+3. **Use the final matched I# and F# to look up the evaluation label** from the table below.
 
-        Once you determine the highest score, call:
-        score_candidate(<score>)
+4. **Derive a numeric score** from the match label's corresponding range. Then call the function:
+   \t    score_candidate(<your_numeric_score>)
 
-        Example:
-        - If the candidate has F2="Sales" and I2="Platform" → That combination is 'Good Match' (51-70).
-        - If the same candidate also has F3="Enterprise" and I4="Enterprise Sales" → That combination is 'Perfect Match' (86-100).
-        - The final result is 86-100 (Perfect Match), because 86-100 is higher than 51-70.
+---
 
-        Be sure to follow these instructions precisely. 
-        """
+**TABLE / ALGORITHM FOR FINAL LABEL**  
+
+Once you know the final I# and F# you reached, find the row/column match:
+
+- **F1 / I1** → **Too Basic** → (score range: 0 - 30)  
+- **F1 / I2** → **Iffy Match** → (score range: 31 - 50)  
+- **F1 / I3** → **Iffy Match** → (score range: 31 - 50)  
+- **F1 / I4** → **Iffy Match** → (score range: 31 - 50)
+
+- **F2 / I1** → **Iffy Match** → (score range: 31 - 50)  
+- **F2 / I2** → **Good Match** → (score range: 51 - 70)  
+- **F2 / I3** → **Good Match** → (score range: 51 - 70)  
+- **F2 / I4** → **Out of the box** → (score range: 71 - 90)
+
+- **F3 / I1** → **Iffy Match** → (score range: 31 - 50)  
+- **F3 / I2** → **Good Match** → (score range: 51 - 70)  
+- **F3 / I3** → **Strong Match** → (score range: 71 - 85)  
+- **F3 / I4** → **Perfect Match** → (score range: 86 - 100)
+
+**Numeric Score Guidance:**
+- Too Basic → 0 - 30
+- Iffy Match → 31 - 50
+- Good Match → 51 - 70
+- Strong Match → 71 - 85
+- Perfect Match → 86 - 100
+- Out of the box → 71 - 90
+
+**Key Points**:
+- You must respect the hierarchy: 
+  - If the candidate mismatches on I2, do **not** proceed to I3 or I4.  
+  - Same applies to F-levels (if mismatch on F2, do not check F3 or F4).  
+- The “final matched” I# and F# is whichever label is reached **just before** a mismatch (or the highest level if none of them mismatch).
+- After determining that final I# and final F#, use the table to select the label, then pick a numeric score in the specified range.
+- Call `score_candidate(<your_score>)` with your chosen score.
+
+Be sure to follow these instructions precisely.
+"""
+
     return call_openai_api(system_prompt, candidate_data, tools=[score_candidate_tool])

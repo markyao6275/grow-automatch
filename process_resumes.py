@@ -34,7 +34,12 @@ def process_resumes(folder_path):
                 function_labels = generate_function_labels(pdf_text)
 
                 candidate_profile.update(
-                    {**general_info, **industry_labels, **function_labels}
+                    {
+                        **general_info,
+                        **industry_labels,
+                        **function_labels,
+                        "resume_text": pdf_text,
+                    }
                 )
 
                 # Generate timestamp filename
