@@ -6,10 +6,7 @@ A tool for matching resumes with job descriptions.
 
 1. Create a `/job_descriptions` folder to store your job posting files
 2. Create a `/resumes` folder to store candidate resume files
-3. Run `script.py` to perform the matching
-
-## Run `script.py`
-
-```bash
-python script.py
-```
+3. Create virtual environment
+4. Activate virtual environment
+5. Install dependencies
+6. Run `python script.py`
