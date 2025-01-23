@@ -1,6 +1,7 @@
+import csv
 import json
 import os
-import csv
+import re
 
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
@@ -21,7 +22,10 @@ def score_candidates(folder_path):
                     candidate_data = json.load(file)
 
                 score = score_candidate(json.dumps(candidate_data, indent=2))
-                candidate_data["score"] = score.get("score", 0)
+                if not score or not score.get("score"):
+                    print(f"No score found for {filename}")
+                    continue
+                candidate_data["score"] = score.get("score")
                 candidate_data.pop("resume_text")
 
                 scored_candidates.append(candidate_data)
@@ -69,23 +73,23 @@ def score_candidate(candidate_data):
 
     # Include the "table" and instructions in the system_prompt:
     system_prompt = f"""
-You are a helpful assistant scoring a candidate for a job at Uber as an Enterprise Sales professional in Tokyo, Japan.
+You are a helpful assistant scoring a candidate for a job at Wolt as an Field Sales professional in Tokyo, Japan.
 
 **Job information:**
-company: Uber
-position: Enterprise Sales
-country: Japan
-city: Tokyo
+Company: Wolt  
+Position: Field Sales  
+Country: Japan  
+City: Tokyo  
 
-I1: Digital
-I2: Platform
-I3: Mobility
-I4 (GPT Tags): Enterprise Sales, Account Management, Business Development
+I1: Physical  
+I2: Retail  
+I3: Food Delivery  
+I4 (GPT Tags): Quick commerce, Food and Beverage, Logistics, Last-Mile Delivery  
 
-F1: GTM
-F2: Sales
-F3: Enterprise
-F4: Relationship Management, B2B Sales
+F1: GTM  
+F2: Sales  
+F3: AE, BDM  
+F4 (GPT Tags): Field Sales, Relationship Management, B2B Sales  
 
 ---
 
@@ -104,7 +108,9 @@ F4: Relationship Management, B2B Sales
 
 3. **Use the final matched I# and F# to look up the evaluation label** from the table below.
 
-4. **Derive a numeric score** from the match label's corresponding range. Then call the function: `score_candidate(<your_numeric_score>)`
+4. **Based on the suitability of the candidate's résumé for the job, pick a numeric score in the label's range.**
+
+5. **Always call the function tool: `score_candidate(<your_numeric_score>)`**
 
 ---
 
@@ -141,9 +147,101 @@ Once you know the final I# and F# you reached, find the row/column match:
   - Same applies to F-levels (if mismatch on F2, do not check F3 or F4).  
 - The "final matched" I# and F# is whichever label is reached **just before** a mismatch (or the highest level if none of them mismatch).
 - After determining that final I# and final F#, use the table to select the label, then pick a numeric score in the specified range.
-- Call `score_candidate(<your_score>)` with your chosen score.
+- Always call the `score_candidate(<your_score>)` function tool with your chosen score.
 
 Be sure to follow these instructions precisely.
 """
 
-    return call_openai_api(system_prompt, candidate_data, tools=[score_candidate_tool])
+    return generate_score(system_prompt, candidate_data, score_candidate_tool)
+
+
+def generate_score(system_prompt, candidate_data, score_candidate_tool):
+    answer = call_openai_api(
+        system_prompt, candidate_data, tools=[score_candidate_tool]
+    )
+
+    if not answer:
+        return None
+
+    if not answer.tool_calls:
+        textual_answer = answer.content
+        score = extract_score(textual_answer)
+        return {"score": score} if score else None
+
+    return json.loads(answer.tool_calls[0].function.arguments)
+
+
+def extract_score(text):
+    """
+    Extracts the numeric score from the given textual answer.
+
+    Parameters:
+        text (str): The textual answer containing the score.
+
+    Returns:
+        int: The extracted score.
+
+    Raises:
+        ValueError: If no score could be found in the text.
+    """
+
+    # Strategy 1: Look for JSON code blocks and parse them
+    json_score = _extract_score_from_json(text)
+    if json_score is not None:
+        return json_score
+
+    # Strategy 2: Use regex to find patterns like "score of X" or '"score": X'
+    regex_patterns = [
+        r"score\s*(?:of|:)\s*(\d+)",  # e.g., "score of 40" or "score: 40"
+        r"score\s*is\s*(\d+)",  # e.g., "score is 40"
+        r"score\s*=\s*(\d+)",  # e.g., "score = 40"
+        r'"score"\s*:\s*(\d+)',  # e.g., '"score": 40'
+        r"score\s*\(\s*(\d+)\s*\)",  # e.g., 'score(40)'
+    ]
+
+    for pattern in regex_patterns:
+        match = re.search(pattern, text, re.IGNORECASE)
+        if match:
+            return int(match.group(1))
+
+    # Strategy 3: As a last resort, find standalone numbers near the word "score"
+    fallback_pattern = r"score.*?(\d{1,3})"
+    match = re.search(fallback_pattern, text, re.IGNORECASE)
+    if match:
+        return int(match.group(1))
+
+    # If all strategies fail, raise an error
+    raise ValueError("No numeric score found in the provided text.")
+
+
+def _extract_score_from_json(text):
+    """
+    Helper function to extract score from JSON code blocks within the text.
+
+    Parameters:
+        text (str): The textual answer containing JSON code blocks.
+
+    Returns:
+        int or None: The extracted score if found, else None.
+    """
+    # Regex to find JSON code blocks
+    json_block_pattern = r"```json\s*(\{.*?\})\s*```"
+    matches = re.findall(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
+
+    for json_str in matches:
+        try:
+            data = json.loads(json_str)
+            # Navigate through the JSON structure to find 'score'
+            # This path may vary; adjust accordingly
+            score = data
+            keys = ["parameters", "score"]
+            for key in keys:
+                score = score.get(key, {})
+            if isinstance(score, int):
+                return score
+        except json.JSONDecodeError:
+            continue  # If JSON is invalid, skip to the next match
+        except AttributeError:
+            continue  # If path does not exist, skip
+
+    return None

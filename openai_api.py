@@ -40,12 +40,7 @@ def call_openai_api(
         tools=tools or NOT_GIVEN,
     )
 
-    if (
-        not completion.choices
-        or not completion.choices[0].message.tool_calls
-        or not completion.choices[0].message.tool_calls[0].function.arguments
-    ):
+    if not completion or not completion.choices or not completion.choices[0]:
         return None
 
-    answer = completion.choices[0].message.tool_calls[0].function.arguments
-    return json.loads(answer)
+    return completion.choices[0].message if completion.choices[0].message else None

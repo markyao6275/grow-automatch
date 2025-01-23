@@ -89,7 +89,12 @@ def get_general_info(pdf_text):
         "If you cannot infer some details, guess or say 'Unknown'.\n"
     )
 
-    return call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
+    answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
+
+    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+        return None
+
+    return json.loads(answer.tool_calls[0].function.arguments)
 
 
 def generate_industry_labels(pdf_text):
@@ -137,9 +142,14 @@ def generate_industry_labels(pdf_text):
         "I1: Consulting; I2: Corporate; I3: HR/Accounting/Marketing/Research;"
     )
 
-    return call_openai_api(
+    answer = call_openai_api(
         system_prompt, pdf_text, tools=[generate_industry_labels_tool]
     )
+
+    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+        return None
+
+    return json.loads(answer.tool_calls[0].function.arguments)
 
 
 def generate_function_labels(pdf_text):
@@ -182,6 +192,11 @@ def generate_function_labels(pdf_text):
         "I1: GTM; I2: Marketing; I3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
     )
 
-    return call_openai_api(
+    answer = call_openai_api(
         system_prompt, pdf_text, tools=[generate_function_labels_tool]
     )
+
+    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+        return None
+
+    return json.loads(answer.tool_calls[0].function.arguments)
