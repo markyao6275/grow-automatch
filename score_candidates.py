@@ -34,11 +34,9 @@ def score_candidates(folder_path):
     output_file = os.path.join(output_dir, f"scored_candidates.csv")
 
     # Write candidate_profiles to CSV file
-    print(1, scored_candidates)
     scored_candidates = sorted(
         scored_candidates, key=lambda x: x.get("score", 0), reverse=True
     )
-    print(2, scored_candidates)
 
     # Determine CSV headers from the first candidate (assuming all have same structure)
     if scored_candidates:
@@ -106,8 +104,7 @@ F4: Relationship Management, B2B Sales
 
 3. **Use the final matched I# and F# to look up the evaluation label** from the table below.
 
-4. **Derive a numeric score** from the match label's corresponding range. Then call the function:
-   \t    score_candidate(<your_numeric_score>)
+4. **Derive a numeric score** from the match label's corresponding range. Then call the function: `score_candidate(<your_numeric_score>)`
 
 ---
 
@@ -142,7 +139,7 @@ Once you know the final I# and F# you reached, find the row/column match:
 - You must respect the hierarchy: 
   - If the candidate mismatches on I2, do **not** proceed to I3 or I4.  
   - Same applies to F-levels (if mismatch on F2, do not check F3 or F4).  
-- The “final matched” I# and F# is whichever label is reached **just before** a mismatch (or the highest level if none of them mismatch).
+- The "final matched" I# and F# is whichever label is reached **just before** a mismatch (or the highest level if none of them mismatch).
 - After determining that final I# and final F#, use the table to select the label, then pick a numeric score in the specified range.
 - Call `score_candidate(<your_score>)` with your chosen score.
 
