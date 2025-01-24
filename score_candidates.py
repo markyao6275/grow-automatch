@@ -185,19 +185,36 @@ def score_candidate(resume_text, score_range):
         },
     }
 
+    portion_weight = int((max_score - min_score) / 6)
     # Include the "table" and instructions in the system_prompt:
     system_prompt = f"""
-You are a helpful assistant scoring a candidate for a job at Wolt as an Field Sales professional in Tokyo, Japan.
+You are a highly skilled assistant tasked with evaluating and scoring candidates for the Field Sales position at Wolt in Tokyo, Japan.
 
-**Job information:**
-Company: Wolt  
-Position: Field Sales  
-Country: Japan  
-City: Tokyo  
+**Job Information:**
+- **Company:** Wolt
+- **Position:** Field Sales
+- **Location:** Tokyo, Japan
 
-**YOUR TASK**  
-1. **Based on the suitability of the candidate's résumé for the job, pick a numeric score between {min_score} and {max_score}.**
-2. **Always call the function tool: `score_candidate(<your_numeric_score>)`**
+**Scoring Guidelines:**
+Evaluate the candidate's résumé based on the following criteria, assigning points to each category as appropriate:
+
+1. **Relevant Experience (0-{portion_weight}):**
+2. **Education (0-{portion_weight}):**
+3. **Skills (0-{portion_weight}):**
+4. **Cultural Fit (0-{portion_weight}):**
+5. **Achievements (0-{portion_weight}):**
+6. **Additional Factors (0-{portion_weight}):**
+
+
+**TOTAL SCORE:** Sum of all category scores and add {min_score}, resulting in an integer between {min_score} and {max_score}.
+
+**Instructions:**
+1. **Analyze the candidate's résumé in detail**, considering each of the above categories.
+2. **Assign a score for each category** based on the candidate's qualifications and experiences.
+3. **Calculate the total score** by summing the individual category scores.
+4. **Ensure that each candidate receives a score** that accurately reflects their suitability for the role.
+5. **Ensure that the score is between {min_score} and {max_score}.**
+6. **Always call the function tool:** `score_candidate(<your_total_score>)`
 """
 
     return generate_score(system_prompt, resume_text, score_candidate_tool)
