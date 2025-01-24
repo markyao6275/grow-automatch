@@ -4,12 +4,12 @@ from process_resumes import process_resumes
 from process_job_descriptions import process_job_descriptions
 from score_candidates import score_candidates
 
-folder_containing_pdfs = "./resumes"
+folder_containing_resumes = "./resumes"
 folder_containing_job_descriptions = "./job_descriptions"
 
 
 def main():
-    processed_resumes_file = process_resumes(folder_containing_pdfs)
+    processed_resumes_file = process_resumes(folder_containing_resumes)
     if not processed_resumes_file:
         print("No resumes processed")
         return
