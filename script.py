@@ -3,12 +3,12 @@ import pandas as pd
 from process_resumes import process_resumes
 from process_job_descriptions import process_job_descriptions
 from score_candidates import score_candidates
+from display_ui import display_ui
 
 folder_containing_resumes = "./resumes"
 folder_containing_job_descriptions = "./job_descriptions"
 
-
-def main():
+def start_processing():
     processed_resumes_file = process_resumes(folder_containing_resumes)
     if not processed_resumes_file:
         print("No resumes processed")
@@ -28,13 +28,15 @@ def main():
 
     # Iterate through each job description
     for index, row in df.iterrows():
-        if index == 0:  # For testing, limit to first job description
-            job_data = row.to_dict()
-            score_candidates(
-                job_data,
-                processed_resumes_file,
-                # "output/perfect_candidates_pomvom.csv", # For testing only
-            )
+        job_data = row.to_dict()
+        score_candidates(
+            job_data,
+            processed_resumes_file,
+            # "output/perfect_candidates_pomvom.csv", # For testing only
+        )
+    
+def main():
+    display_ui(start_processing)
 
 
 if __name__ == "__main__":
