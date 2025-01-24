@@ -1,6 +1,7 @@
 import json
 import os
 from datetime import datetime
+import csv
 
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
@@ -12,7 +13,7 @@ def process_job_descriptions(folder_path):
     1. Iterates over all PDFs in a folder.
     2. Extracts text from each PDF.
     3. Sends text to OpenAI API.
-    4. Writes candidate profiles to a JSON file.
+    4. Writes candidate profiles to a CSV file.
     """
     job_descriptions = []
 
@@ -33,7 +34,12 @@ def process_job_descriptions(folder_path):
                 function_labels = generate_function_labels(pdf_text)
 
                 job_description.update(
-                    {**general_info, **industry_labels, **function_labels}
+                    {
+                        **general_info,
+                        **industry_labels,
+                        **function_labels,
+                        "job_description_text": pdf_text,
+                    }
                 )
                 job_descriptions.append(job_description)
             except Exception as e:
@@ -45,11 +51,21 @@ def process_job_descriptions(folder_path):
 
     # Generate timestamp filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(output_dir, f"job_descriptions_{timestamp}.json")
+    output_file = os.path.join(output_dir, f"job_descriptions_{timestamp}.csv")
 
-    # Write job_descriptions to JSON file
-    with open(output_file, "w", encoding="utf-8") as f:
-        json.dump(job_descriptions, f, ensure_ascii=False, indent=2)
+    # Write job_descriptions to CSV file
+    if job_descriptions:
+        # Get all unique keys from all dictionaries
+        fieldnames = set()
+        for job in job_descriptions:
+            fieldnames.update(job.keys())
+
+        with open(output_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=sorted(fieldnames))
+            writer.writeheader()
+            writer.writerows(job_descriptions)
+
+    return output_file
 
 
 def get_general_info(pdf_text):
@@ -89,9 +105,17 @@ def get_general_info(pdf_text):
         "If you cannot infer some details, guess or say 'Unknown'.\n"
     )
 
-    answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
+    answer = call_openai_api(
+        system_prompt=system_prompt,
+        user_prompt=pdf_text,
+        tools=[get_generate_info_tool],
+    )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -131,7 +155,7 @@ def generate_industry_labels(pdf_text):
         "You are a helpful assistant evaluating information from a job description.\n\n"
         "Use the function 'generate_industry_labels' to provide the candidate's:\n"
         "Reference the following Industry grid and select the best fit option.\n"
-        "Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag keywords for better sorting.\n"
+        "Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag English keywords for better sorting.\n"
         "You cannot change rows. For example,anyone in I2 Cloud must be in SaaS, XaaS, Security, or Consulting for I3.\n\n"
         "I1: Digital; I2: Cloud; I3: SaaS, XaaS, Security, Consulting; I4: Sales, Marketing, Analytics, Network, Security Eng, Design, HR, Finance, Cloud Compute, AI, Data Other[Propose]\n"
         "I1: Digital; I2: Platform; I3: SaaS, XaaS, Security, Consulting; I4:Food Delivery, Logistics, EdTech, TravelTech,  Social Media, Chatapps, Payments, Insurtech, Exchange, Blockchain\n"
@@ -143,10 +167,16 @@ def generate_industry_labels(pdf_text):
     )
 
     answer = call_openai_api(
-        system_prompt, pdf_text, tools=[generate_industry_labels_tool]
+        system_prompt=system_prompt,
+        user_prompt=pdf_text,
+        tools=[generate_industry_labels_tool],
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -186,17 +216,31 @@ def generate_function_labels(pdf_text):
         "You are a helpful assistant evaluating candidate information from a resume.\n\n"
         "Use the function 'generate_function_labels' to provide the candidate's:\n"
         "Reference the following Function grid and select the best fit option.\n"
-        "Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag keywords for better sorting.\n"
+        "Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag English keywords for better sorting.\n"
         "You cannot change rows. For example,anyone in F2 Sales must be in AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other for F3.\n\n"
-        "I1: GTM; I2: Sales; I3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other\n"
-        "I1: GTM; I2: Marketing; I3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
+        "F1: GTM; F2: Sales; F3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other\n"
+        "F1: GTM; F2: Marketing; F3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
+        "F1: GTM; F2: Consulting/PS; F3: Delivery, Implementation, Customer Success, TAM, Pre-sales\n"
+        "F1: GTM; F2: Operations; F3: Strategy, CS, Analytics, Product, Project, Procurement, Supply Chain\n"
+        "F1: Corporate; F2: Finance & Accounting; F3: FP&A, Compensation, M&A\n"
+        "F1: Corporate; F2: HR & Admin; F3: HRBP, Recruiting, Office Manager, Onboarding, Training\n"
+        "F1: Corporate; F2: Legal & Compliance; F3: Legal, Compilance, GR, Policy\n"
+        "F1: Corporate; F2: Internal IT; F3: IT Support, Onboarding\n"
+        "F1: Product & Eng; F2: Computer Science; F3: Product, UX, SWE, QA, DevOps\n"
+        "F1: Product & Eng; F2: Physics; F3: Electrical, Mechanical, Embedded etc.\n"
     )
 
     answer = call_openai_api(
-        system_prompt, pdf_text, tools=[generate_function_labels_tool]
+        system_prompt=system_prompt,
+        user_prompt=pdf_text,
+        tools=[generate_function_labels_tool],
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)

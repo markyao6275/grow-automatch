@@ -21,7 +21,7 @@ def get_openai_client():
 
 def call_openai_api(
     system_prompt: str,
-    pdf_text: str,
+    user_prompt: str,
     model: str = default_model,
     tools: list[dict] = None,
 ):
@@ -34,7 +34,7 @@ def call_openai_api(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": pdf_text},
+            {"role": "user", "content": user_prompt},
         ],
         temperature=0.0,
         tools=tools or NOT_GIVEN,
