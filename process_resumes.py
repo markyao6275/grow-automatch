@@ -1,8 +1,8 @@
 import json
 import os
 import csv
-from datetime import datetime
 
+from datetime import datetime
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 from pdf_parser import parse_pdf_to_text
@@ -17,7 +17,7 @@ def process_resumes(folder_path):
     """
     # Initialize list to store all resumes
     candidate_profiles = []
-    
+
     for filename in os.listdir(folder_path):
         if filename.lower().endswith(".pdf"):
             pdf_path = os.path.join(folder_path, filename)
@@ -65,7 +65,7 @@ def process_resumes(folder_path):
             writer = csv.DictWriter(f, fieldnames=sorted(fieldnames))
             writer.writeheader()
             writer.writerows(candidate_profiles)
-    
+
     return output_file
 
 
@@ -170,7 +170,11 @@ def get_general_info(pdf_text):
         "Gender (options):\n"
         "1) Male\n"
         "2) Female\n\n"
-        "Age example with margin of error: '35 +/- 2'. If unclear, guess or put 'Unknown'.\n\n"
+        "Age example with margin of error: '35 +/- 2'. If unclear, guess using: \n"
+        "- Graduation year (assuming typical graduation age is 21), \n"
+        "- Work experience timelines (e.g., first year of employment), or\n"
+        "- Any other relevant details from the resume.\n\n"
+        f"For reference, today is {datetime.now().strftime('%Y-%m-%d')}\n\n"
         "Language (Japanese): Choose 1 Option\n"
         "1) Native\n"
         "2) Fluent (Fluent communication in Japanese, or N1, or advanced)\n"
@@ -188,7 +192,11 @@ def get_general_info(pdf_text):
 
     answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -243,7 +251,11 @@ def generate_industry_labels(pdf_text):
         system_prompt, pdf_text, tools=[generate_industry_labels_tool]
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -301,7 +313,11 @@ def generate_function_labels(pdf_text):
         system_prompt, pdf_text, tools=[generate_function_labels_tool]
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
