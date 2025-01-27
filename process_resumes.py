@@ -1,6 +1,8 @@
 import json
 import os
+import csv
 
+from datetime import datetime
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 from pdf_parser import parse_pdf_to_text
@@ -11,11 +13,10 @@ def process_resumes(folder_path):
     1. Iterates over all PDFs in a folder.
     2. Extracts text from each PDF.
     3. Sends text to OpenAI API.
-    4. Writes candidate profiles to a JSON file.
+    4. Writes candidate profiles to a CSV file.
     """
-    # Create output directory if it doesn't exist
-    output_dir = "output/candidates"
-    os.makedirs(output_dir, exist_ok=True)
+    # Initialize list to store all resumes
+    candidate_profiles = []
 
     for filename in os.listdir(folder_path):
         if filename.lower().endswith(".pdf"):
@@ -41,16 +42,31 @@ def process_resumes(folder_path):
                         "resume_text": pdf_text,
                     }
                 )
-
-                # Generate timestamp filename
-                output_file = os.path.join(output_dir, f"{filename}.json")
-
-                # Write candidate_profiles to JSON file
-                with open(output_file, "w", encoding="utf-8") as f:
-                    json.dump(candidate_profile, f, ensure_ascii=False, indent=2)
-
+                candidate_profiles.append(candidate_profile)
             except Exception as e:
                 print(f"Error calling OpenAI API for {filename}: {e}")
+
+    # Create output directory if it doesn't exist
+    output_dir = "output"
+    os.makedirs(output_dir, exist_ok=True)
+
+    # Generate timestamp filename
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    output_file = os.path.join(output_dir, f"resumes_{timestamp}.csv")
+
+    # Write candidate_profiles to CSV file
+    if candidate_profiles:
+        # Get all unique keys from all dictionaries
+        fieldnames = set()
+        for profile in candidate_profiles:
+            fieldnames.update(profile.keys())
+
+        with open(output_file, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=sorted(fieldnames))
+            writer.writeheader()
+            writer.writerows(candidate_profiles)
+
+    return output_file
 
 
 def get_general_info(pdf_text):
@@ -154,7 +170,11 @@ def get_general_info(pdf_text):
         "Gender (options):\n"
         "1) Male\n"
         "2) Female\n\n"
-        "Age example with margin of error: '35 +/- 2'. If unclear, guess or put 'Unknown'.\n\n"
+        "Age example with margin of error: '35 +/- 2'. If unclear, guess using: \n"
+        "- Graduation year (assuming typical graduation age is 21), \n"
+        "- Work experience timelines (e.g., first year of employment), or\n"
+        "- Any other relevant details from the resume.\n\n"
+        f"For reference, today is {datetime.now().strftime('%Y-%m-%d')}\n\n"
         "Language (Japanese): Choose 1 Option\n"
         "1) Native\n"
         "2) Fluent (Fluent communication in Japanese, or N1, or advanced)\n"
@@ -172,7 +192,11 @@ def get_general_info(pdf_text):
 
     answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -212,7 +236,7 @@ def generate_industry_labels(pdf_text):
         "You are a helpful assistant evaluating candidate information from a resume.\n\n"
         "Use the function 'generate_industry_labels' to provide the candidate's:\n"
         "Reference the following Industry grid and select the best fit option.\n"
-        "Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag keywords for better sorting.\n"
+        "Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag English keywords for better sorting.\n"
         "You cannot change rows. For example,anyone in I2 Cloud must be in SaaS, XaaS, Security, or Consulting for I3.\n\n"
         "I1: Digital; I2: Cloud; I3: SaaS, XaaS, Security, Consulting; I4: Sales, Marketing, Analytics, Network, Security Eng, Design, HR, Finance, Cloud Compute, AI, Data Other[Propose]\n"
         "I1: Digital; I2: Platform; I3: SaaS, XaaS, Security, Consulting; I4:Food Delivery, Logistics, EdTech, TravelTech,  Social Media, Chatapps, Payments, Insurtech, Exchange, Blockchain\n"
@@ -227,7 +251,11 @@ def generate_industry_labels(pdf_text):
         system_prompt, pdf_text, tools=[generate_industry_labels_tool]
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -267,7 +295,7 @@ def generate_function_labels(pdf_text):
         "You are a helpful assistant evaluating candidate information from a resume.\n\n"
         "Use the function 'generate_function_labels' to provide the candidate's:\n"
         "Reference the following Function grid and select the best fit option.\n"
-        "Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag keywords for better sorting.\n"
+        "Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag English keywords for better sorting.\n"
         "You cannot change rows. For example,anyone in F2 Sales must be in AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other for F3.\n\n"
         "F1: GTM; F2: Sales; F3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other\n"
         "F1: GTM; F2: Marketing; F3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
@@ -285,7 +313,11 @@ def generate_function_labels(pdf_text):
         system_prompt, pdf_text, tools=[generate_function_labels_tool]
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)

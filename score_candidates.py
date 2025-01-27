@@ -1,48 +1,110 @@
 import csv
 import json
 import os
+import pandas as pd
 import re
 
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 
 
-def score_candidates(folder_path):
+buckets_table = {
+    ("F1", "I1"): "Too Basic",
+    ("F1", "I2"): "Iffy Match",
+    ("F1", "I3"): "Iffy Match",
+    ("F1", "I4"): "Iffy Match",
+    ("F2", "I1"): "Iffy Match",
+    ("F2", "I2"): "Good Match",
+    ("F2", "I3"): "Good Match",
+    ("F2", "I4"): "Out of the box",
+    ("F3", "I1"): "Iffy Match",
+    ("F3", "I2"): "Good Match",
+    ("F3", "I3"): "Strong Match",
+    ("F3", "I4"): "Perfect Match",
+    ("F4", "I1"): "Iffy Match",
+    ("F4", "I2"): "Good Match",
+    ("F4", "I3"): "Strong Match",
+    ("F4", "I4"): "Perfect Match",
+}
+
+scores_table = {
+    "Too Basic": {
+        "min": 0,
+        "max": 30,
+    },
+    "Iffy Match": {
+        "min": 31,
+        "max": 50,
+    },
+    "Good Match": {
+        "min": 51,
+        "max": 70,
+    },
+    "Strong Match": {
+        "min": 71,
+        "max": 85,
+    },
+    "Perfect Match": {
+        "min": 86,
+        "max": 100,
+    },
+    "Out of the box": {
+        "min": 60,
+        "max": 75,
+    },
+}
+
+
+def score_candidates(job_data, processed_resumes_file):
+    job_labels = {
+        "I1": job_data.get("I1"),
+        "I2": job_data.get("I2"),
+        "I3": job_data.get("I3"),
+        "I4": job_data.get("I4"),
+        "F1": job_data.get("F1"),
+        "F2": job_data.get("F2"),
+        "F3": job_data.get("F3"),
+        "F4": job_data.get("F4"),
+    }
     scored_candidates = []
-    for filename in os.listdir(folder_path):
-        if filename.lower().endswith(".json"):
-            json_file_path = os.path.join(folder_path, filename)
-            print(f"Scoring candidate: {json_file_path}")
 
-            # If PDF text is too large, you may need to chunk it.
-            # For simplicity, we're sending it all at once here.
-            try:
-                # 1. Load the JSON file into a Python list of dictionaries
-                with open(json_file_path, "r", encoding="utf-8") as file:
-                    candidate_data = json.load(file)
+    # Read the CSV file
+    df = pd.read_csv(processed_resumes_file)
+    # Iterate through each resume data
+    for index, row in df.iterrows():
+        try:
+            candidate_data = row.to_dict()
+            print(f"Scoring candidate: {candidate_data.get('name')}")
+            bucket = determine_bucket(candidate_data, job_labels)
+            candidate_data["final_I"] = bucket.get("final_I")
+            candidate_data["final_F"] = bucket.get("final_F")
+            candidate_data["bucket"] = bucket.get("bucket")
 
-                score = score_candidate(json.dumps(candidate_data, indent=2))
+            if bucket.get("bucket"):
+                score = score_candidate(
+                    candidate_data.get("resume_text"),
+                    score_range=scores_table.get(bucket.get("bucket")),
+                )
                 if not score or not score.get("score"):
-                    print(f"No score found for {filename}")
                     continue
                 candidate_data["score"] = score.get("score")
-                candidate_data.pop("resume_text")
+            else:
+                candidate_data["score"] = 0
 
-                scored_candidates.append(candidate_data)
-            except Exception as e:
-                print(f"Error calling OpenAI API for {filename}: {e}")
+            candidate_data.pop("resume_text")
+            scored_candidates.append(candidate_data)
+        except Exception as e:
+            print(f"Error calling OpenAI API for {job_data.get('name')}: {e}")
 
-    # Replace JSON output with CSV output
     output_dir = "output/scored_candidates"
     os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(output_dir, f"scored_candidates.csv")
-
-    # Write candidate_profiles to CSV file
+    output_file = os.path.join(
+        output_dir,
+        f"{sanitize_filename(job_data.get('company'))}_{sanitize_filename(job_data.get('position'))}_scored_candidates.csv",
+    )
     scored_candidates = sorted(
         scored_candidates, key=lambda x: x.get("score", 0), reverse=True
     )
-
-    # Determine CSV headers from the first candidate (assuming all have same structure)
     if scored_candidates:
         fieldnames = list(scored_candidates[0].keys())
 
@@ -52,7 +114,59 @@ def score_candidates(folder_path):
             writer.writerows(scored_candidates)
 
 
-def score_candidate(candidate_data):
+def determine_bucket(candidate_data, job_labels):
+    """
+    Determines the evaluation bucket for a candidate based on the matching of 'I' and 'F' labels.
+
+    Args:
+        candidate_data (dict): Candidate's data containing 'I1' to 'I4' and 'F1' to 'F4' labels.
+        job_labels (dict): Job's labels containing 'I1' to 'I4' and 'F1' to 'F4'.
+
+    Returns:
+        str: The evaluation label based on the matching algorithm.
+    """
+
+    def get_final_matched_level(labels, candidate_labels, category):
+        """
+        Determines the final matched level for a given category ('I' or 'F').
+
+        Args:
+            labels (dict): Job's labels for the category.
+            candidate_labels (dict): Candidate's labels for the category.
+            category (str): The category to evaluate ('I' or 'F').
+
+        Returns:
+            str: The final matched label (e.g., 'I2', 'F3').
+        """
+        last_matched = "0"  # Initialize to '0' indicating no match yet
+        for level in ["1", "2", "3", "4"]:
+            key = f"{category}{level}"
+            job_label = labels.get(key)
+            candidate_label = candidate_labels.get(key)
+            if job_label == candidate_label:
+                last_matched = level
+            else:
+                break  # Stop at the first mismatch
+        return f"{category}{last_matched}"
+
+    # Determine the final matched 'I' level
+    final_I = get_final_matched_level(job_labels, candidate_data, "I")
+    # Determine the final matched 'F' level
+    final_F = get_final_matched_level(job_labels, candidate_data, "F")
+    # Look up the evaluation label from the mapping table
+    evaluation_label = buckets_table.get((final_F, final_I), "")
+
+    return {
+        "final_I": final_I,
+        "final_F": final_F,
+        "bucket": evaluation_label,
+    }
+
+
+def score_candidate(resume_text, score_range):
+    min_score = score_range.get("min")
+    max_score = score_range.get("max")
+
     score_candidate_tool: ChatCompletionToolParam = {
         "type": "function",
         "function": {
@@ -63,7 +177,7 @@ def score_candidate(candidate_data):
                 "properties": {
                     "score": {
                         "type": "number",
-                        "description": "Number between 0 and 100",
+                        "description": f"Number between {min_score} and {max_score}",
                     },
                 },
                 "required": ["score"],
@@ -71,94 +185,43 @@ def score_candidate(candidate_data):
         },
     }
 
+    portion_weight = int((max_score - min_score) / 6)
     # Include the "table" and instructions in the system_prompt:
     system_prompt = f"""
-You are a helpful assistant scoring a candidate for a job at Wolt as an Field Sales professional in Tokyo, Japan.
+You are a highly skilled assistant tasked with evaluating and scoring candidates for the Field Sales position at Wolt in Tokyo, Japan.
 
-**Job information:**
-Company: Wolt  
-Position: Field Sales  
-Country: Japan  
-City: Tokyo  
+**Job Information:**
+- **Company:** Wolt
+- **Position:** Field Sales
+- **Location:** Tokyo, Japan
 
-I1: Physical  
-I2: Retail  
-I3: Food Delivery  
-I4 (GPT Tags): Quick commerce, Food and Beverage, Logistics, Last-Mile Delivery  
+**Scoring Guidelines:**
+Evaluate the candidate's résumé based on the following criteria, assigning points to each category as appropriate:
 
-F1: GTM  
-F2: Sales  
-F3: AE, BDM  
-F4 (GPT Tags): Field Sales, Relationship Management, B2B Sales  
+1. **Relevant Experience (0-{portion_weight}):**
+2. **Education (0-{portion_weight}):**
+3. **Skills (0-{portion_weight}):**
+4. **Cultural Fit (0-{portion_weight}):**
+5. **Achievements (0-{portion_weight}):**
+6. **Additional Factors (0-{portion_weight}):**
 
----
 
-**YOUR TASK**  
-1. **Determine the final matched 'I' label (I1 - I4):**  
-   - Compare the job's I1 to the candidate's I1.  
-     - If they match, move on to compare I2.  
-     - If I2 matches, move on to compare I3.  
-     - If I3 matches, move on to compare I4.  
-     - **Stop** at the first mismatch (or if you reach I4 successfully).  
-   - The final "I" level is whichever label you matched last before a mismatch (or I4 if they all match).
+**TOTAL SCORE:** Sum of all category scores and add {min_score}, resulting in an integer between {min_score} and {max_score}.
 
-2. **Determine the final matched 'F' label (F1 - F4):**  
-   - Do the same step-by-step process for F1 → F2 → F3 → F4.  
-   - Stop at the first mismatch, or end at F4 if they keep matching.  
-
-3. **Use the final matched I# and F# to look up the evaluation label** from the table below.
-
-4. **Based on the suitability of the candidate's résumé for the job, pick a numeric score in the label's range.**
-
-5. **Always call the function tool: `score_candidate(<your_numeric_score>)`**
-
----
-
-**TABLE / ALGORITHM FOR FINAL LABEL**  
-
-Once you know the final I# and F# you reached, find the row/column match:
-
-- **F1 / I1** → **Too Basic** → (score range: 0 - 30)  
-- **F1 / I2** → **Iffy Match** → (score range: 31 - 50)  
-- **F1 / I3** → **Iffy Match** → (score range: 31 - 50)  
-- **F1 / I4** → **Iffy Match** → (score range: 31 - 50)
-
-- **F2 / I1** → **Iffy Match** → (score range: 31 - 50)  
-- **F2 / I2** → **Good Match** → (score range: 51 - 70)  
-- **F2 / I3** → **Good Match** → (score range: 51 - 70)  
-- **F2 / I4** → **Out of the box** → (score range: 71 - 90)
-
-- **F3 / I1** → **Iffy Match** → (score range: 31 - 50)  
-- **F3 / I2** → **Good Match** → (score range: 51 - 70)  
-- **F3 / I3** → **Strong Match** → (score range: 71 - 85)  
-- **F3 / I4** → **Perfect Match** → (score range: 86 - 100)
-
-**Numeric Score Guidance:**
-- Too Basic → 0 - 30
-- Iffy Match → 31 - 50
-- Good Match → 51 - 70
-- Strong Match → 71 - 85
-- Perfect Match → 86 - 100
-- Out of the box → 71 - 90
-
-**Key Points**:
-- You must respect the hierarchy: 
-  - If the candidate mismatches on I2, do **not** proceed to I3 or I4.  
-  - Same applies to F-levels (if mismatch on F2, do not check F3 or F4).  
-- The "final matched" I# and F# is whichever label is reached **just before** a mismatch (or the highest level if none of them mismatch).
-- After determining that final I# and final F#, use the table to select the label, then pick a numeric score in the specified range.
-- Always call the `score_candidate(<your_score>)` function tool with your chosen score.
-
-Be sure to follow these instructions precisely.
+**Instructions:**
+1. **Analyze the candidate's résumé in detail**, considering each of the above categories.
+2. **Assign a score for each category** based on the candidate's qualifications and experiences.
+3. **Calculate the total score** by summing the individual category scores.
+4. **Ensure that each candidate receives a score** that accurately reflects their suitability for the role.
+5. **Ensure that the score is between {min_score} and {max_score}.**
+6. **Always call the function tool:** `score_candidate(<your_total_score>)`
 """
 
-    return generate_score(system_prompt, candidate_data, score_candidate_tool)
+    return generate_score(system_prompt, resume_text, score_candidate_tool)
 
 
-def generate_score(system_prompt, candidate_data, score_candidate_tool):
-    answer = call_openai_api(
-        system_prompt, candidate_data, tools=[score_candidate_tool]
-    )
+def generate_score(system_prompt, resume_text, score_candidate_tool):
+    answer = call_openai_api(system_prompt, resume_text, tools=[score_candidate_tool])
 
     if not answer:
         return None
@@ -245,3 +308,7 @@ def _extract_score_from_json(text):
             continue  # If path does not exist, skip
 
     return None
+
+
+def sanitize_filename(filename):
+    return re.sub(r"[^\w\-]", "_", filename)

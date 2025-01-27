@@ -1,4 +1,3 @@
-import json
 import os
 
 from openai import OpenAI
@@ -21,7 +20,7 @@ def get_openai_client():
 
 def call_openai_api(
     system_prompt: str,
-    pdf_text: str,
+    user_prompt: str,
     model: str = default_model,
     tools: list[dict] = None,
 ):
@@ -34,7 +33,7 @@ def call_openai_api(
         model=model,
         messages=[
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": pdf_text},
+            {"role": "user", "content": user_prompt},
         ],
         temperature=0.0,
         tools=tools or NOT_GIVEN,
@@ -42,5 +41,11 @@ def call_openai_api(
 
     if not completion or not completion.choices or not completion.choices[0]:
         return None
+
+    # Extract token usage
+    if hasattr(completion, "usage"):
+        token_usage = completion.usage.total_tokens
+        with open("./openai_usage.log", "a") as log_file:
+            log_file.write(f"{token_usage}\n")
 
     return completion.choices[0].message if completion.choices[0].message else None
