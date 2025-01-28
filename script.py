@@ -10,6 +10,7 @@ from display_ui import DisplayUI
 folder_containing_resumes = "./resumes"
 folder_containing_job_descriptions = "./job_descriptions"
 
+
 def start_processing():
     processed_resumes_file = process_resumes(folder_containing_resumes)
     if not processed_resumes_file:
@@ -23,20 +24,14 @@ def start_processing():
         return
 
     # Read the CSV file
-    df = pd.read_csv(
-        processed_job_descriptions_file
-        # "./output/POMVOM_JD.csv" # For testing only
-    )
+    df = pd.read_csv(processed_job_descriptions_file)
 
     # Iterate through each job description
     for index, row in df.iterrows():
         job_data = row.to_dict()
-        score_candidates(
-            job_data,
-            processed_resumes_file,
-            # "output/perfect_candidates_pomvom.csv", # For testing only
-        )
-    
+        score_candidates(job_data, processed_resumes_file)
+
+
 if __name__ == "__main__":
     app = QApplication(sys.argv)
 

@@ -17,7 +17,7 @@ def process_resumes(folder_path):
     """
     # Initialize list to store all resumes
     candidate_profiles = []
-    
+
     for filename in os.listdir(folder_path):
         if filename.lower().endswith(".pdf"):
             pdf_path = os.path.join(folder_path, filename)
@@ -65,7 +65,7 @@ def process_resumes(folder_path):
             writer = csv.DictWriter(f, fieldnames=sorted(fieldnames))
             writer.writeheader()
             writer.writerows(candidate_profiles)
-    
+
     return output_file
 
 
@@ -188,7 +188,11 @@ def get_general_info(pdf_text):
 
     answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -235,15 +239,19 @@ def generate_industry_labels(pdf_text):
         "I1: Physical; I2: Robotics; I3: Mobility, Space, VR&AR, Smart Cities, Robots, 3D Printing; I4: Autonomus Driving/Robots/Satellites/Launch\n"
         "I1: Physical; I2: Semicon; I3: Telco, Data CenterChip Design, Fabrication, Quantum; I4: Licensing, inhouse\n"
         "I1: Physical; I2: Energy; I3: Solar, Nuclear, Hydrogen, Batteries, Charging; I4: Materials\n"
-        "I1: Consulting; I2: Strategy; I3: Strategy/Management; I4: MBB, Big Consutling, Other\n"
-        "I1: Consulting; I2: Corporate; I3: HR/Accounting/Marketing/Research;"
+        "I1: Consulting; I2: Strategy; I3: Strategy, Management; I4: MBB, Big Consutling, Other\n"
+        "I1: Consulting; I2: Corporate; I3: HR, Accounting, Marketing, Research;"
     )
 
     answer = call_openai_api(
         system_prompt, pdf_text, tools=[generate_industry_labels_tool]
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
@@ -301,7 +309,11 @@ def generate_function_labels(pdf_text):
         system_prompt, pdf_text, tools=[generate_function_labels_tool]
     )
 
-    if not answer or not answer.tool_calls or not answer.tool_calls[0].function.arguments:
+    if (
+        not answer
+        or not answer.tool_calls
+        or not answer.tool_calls[0].function.arguments
+    ):
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
