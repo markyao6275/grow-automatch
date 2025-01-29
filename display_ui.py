@@ -236,10 +236,6 @@ class DisplayUI(QWidget):
             )
             return
 
-        self.submit_button.setEnabled(False)
-        self.submit_button.setText("Processing...")
-        QApplication.processEvents()
-
         try:
             for file in self.resume_files:
                 shutil.copy(file, "resumes")
