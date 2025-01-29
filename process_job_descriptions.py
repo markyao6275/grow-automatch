@@ -162,8 +162,8 @@ def generate_industry_labels(pdf_text):
         "I1: Physical; I2: Robotics; I3: Mobility, Space, VR&AR, Smart Cities, Robots, 3D Printing; I4: Autonomus Driving/Robots/Satellites/Launch\n"
         "I1: Physical; I2: Semicon; I3: Telco, Data CenterChip Design, Fabrication, Quantum; I4: Licensing, inhouse\n"
         "I1: Physical; I2: Energy; I3: Solar, Nuclear, Hydrogen, Batteries, Charging; I4: Materials\n"
-        "I1: Consulting; I2: Strategy; I3: Strategy/Management; I4: MBB, Big Consutling, Other\n"
-        "I1: Consulting; I2: Corporate; I3: HR/Accounting/Marketing/Research;"
+        "I1: Consulting; I2: Strategy; I3: Strategy, Management; I4: MBB, Big Consutling, Other\n"
+        "I1: Consulting; I2: Corporate; I3: HR, Accounting, Marketing, Research;"
     )
 
     answer = call_openai_api(
