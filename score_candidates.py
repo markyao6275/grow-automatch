@@ -80,10 +80,12 @@ def score_candidates(job_data, processed_resumes_file):
             candidate_data["final_F"] = bucket.get("final_F")
             candidate_data["bucket"] = bucket.get("bucket")
 
-            if bucket.get("bucket"):
+            candidate_data["score"] = scores_table.get(bucket.get("bucket")).get("max")
+            candidate_data["score"] = apply_score_rules(candidate_data)
+
+            if bucket.get("bucket") and candidate_data["score"] >= 70:
                 score = score_candidate(
-                    candidate_data.get("resume_text"),
-                    score_range=scores_table.get(bucket.get("bucket")),
+                    candidate_data.get("resume_text"), candidate_data["score"]
                 )
                 if not score or not score.get("score"):
                     continue
@@ -112,6 +114,32 @@ def score_candidates(job_data, processed_resumes_file):
             writer = csv.DictWriter(f, fieldnames=fieldnames)
             writer.writeheader()
             writer.writerows(scored_candidates)
+
+
+def apply_score_rules(candidate_data):
+    score = candidate_data.get("score")
+    # Japanese Level
+    if candidate_data.get("japanese_level") == "Native":
+        score -= 0
+    elif candidate_data.get("japanese_level") == "Fluent":
+        score -= 1
+    elif candidate_data.get("japanese_level") == "Business":
+        score -= 10
+    elif candidate_data.get("japanese_level") == "Reading/Writing":
+        score -= 20
+    elif candidate_data.get("japanese_level") == "None/Unknown":
+        score -= 30
+
+    # Location
+    if candidate_data.get("country") == "Japan":
+        score -= 0
+    elif candidate_data.get("country") != "Japan":
+        if candidate_data.get("japanese_level") == "None/Unknown":
+            score -= 50
+        else:
+            score -= 5
+
+    return score if score > 0 else 0
 
 
 def determine_bucket(candidate_data, job_labels):
@@ -163,10 +191,8 @@ def determine_bucket(candidate_data, job_labels):
     }
 
 
-def score_candidate(resume_text, score_range):
-    min_score = score_range.get("min")
-    max_score = score_range.get("max")
-
+# TODO: Refine prompt
+def score_candidate(resume_text, base_score):
     score_candidate_tool: ChatCompletionToolParam = {
         "type": "function",
         "function": {
@@ -185,7 +211,7 @@ def score_candidate(resume_text, score_range):
         },
     }
 
-    portion_weight = int((max_score - min_score) / 6)
+    portion_weight = (100 - base_score) / 6
     # Include the "table" and instructions in the system_prompt:
     system_prompt = f"""
 You are a highly skilled assistant tasked with evaluating and scoring candidates for the Field Sales position at Wolt in Tokyo, Japan.
@@ -205,15 +231,13 @@ Evaluate the candidate's résumé based on the following criteria, assigning poi
 5. **Achievements (0-{portion_weight}):**
 6. **Additional Factors (0-{portion_weight}):**
 
-
-**TOTAL SCORE:** Sum of all category scores and add {min_score}, resulting in an integer between {min_score} and {max_score}.
+**TOTAL SCORE:** Sum of all category scores and add {base_score}
 
 **Instructions:**
 1. **Analyze the candidate's résumé in detail**, considering each of the above categories.
 2. **Assign a score for each category** based on the candidate's qualifications and experiences.
 3. **Calculate the total score** by summing the individual category scores.
 4. **Ensure that each candidate receives a score** that accurately reflects their suitability for the role.
-5. **Ensure that the score is between {min_score} and {max_score}.**
 6. **Always call the function tool:** `score_candidate(<your_total_score>)`
 """
 
