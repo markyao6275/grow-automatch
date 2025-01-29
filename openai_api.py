@@ -1,13 +1,15 @@
 import os
+from dotenv import load_dotenv
 
 from openai import OpenAI
 from openai._types import NOT_GIVEN
 
+load_dotenv()
 openai_api_key = os.environ.get("OPENAI_API_KEY")
+
 default_model = "gpt-4o"
 
 openai_client = None
-
 
 def get_openai_client():
     global openai_client

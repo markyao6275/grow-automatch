@@ -1,7 +1,7 @@
 import os
 import sys
 import shutil
-from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit, QFileDialog, QMessageBox, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy
+from PyQt6.QtWidgets import QWidget, QVBoxLayout, QLabel, QPushButton, QLineEdit, QFileDialog, QMessageBox, QHBoxLayout, QFrame, QSpacerItem, QSizePolicy, QApplication
 from PyQt6.QtGui import QIcon, QPixmap, QFont, QFontDatabase
 from PyQt6.QtCore import Qt
 
@@ -175,6 +175,7 @@ class DisplayUI(QWidget):
 
         self.submit_button.setEnabled(False)
         self.submit_button.setText("Processing...")
+        QApplication.processEvents()
 
         try:
             # Save resumes to /resumes folder
