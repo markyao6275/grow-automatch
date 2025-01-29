@@ -173,6 +173,7 @@ Your task:
 3. **Previous Company 1** / **Position 1** / **Previous Company 2** / **Position 2**: 
    - Extract as many past roles/companies as possible (up to 2). If not available, say 'Unknown'.
 4. **Current Country** and **Current City**: Provide best guess or 'Unknown'.
+   - Japanese living abroad, say 'Japan'.
 5. **Age** (with margin of error): Use the format "35 +/- 2" (example). 
    - If the resume suggests a graduation date, assume graduation age is 21.
    - If there are any timelines (e.g., first employment year), try to infer an approximate age.
