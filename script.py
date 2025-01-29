@@ -1,6 +1,6 @@
 import sys
 import pandas as pd
-from PyQt6.QtWidgets import QApplication
+
 from PyQt6.QtWidgets import QApplication
 from process_resumes import process_resumes
 from process_job_descriptions import process_job_descriptions

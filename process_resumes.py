@@ -1,8 +1,8 @@
 import json
 import os
 import csv
-from datetime import datetime
 
+from datetime import datetime
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 from pdf_parser import parse_pdf_to_text
@@ -161,30 +161,50 @@ def get_general_info(pdf_text):
             },
         },
     }
-    system_prompt = (
-        "You are a helpful assistant extracting candidate information from a resume.\n\n"
-        "Use the function 'get_general_info' to provide the candidate's:\n"
-        "Full Name\tCurrent Company\tCurrent Position\tPrevious Company 1\tPosition 1\t"
-        "Previous Company 2\tPrevious Position 2\tCurrent Country\tCurrent City (Prefecture)\t"
-        "Age (+/- x)\tGender\tJapanese Level\tEnglish Level\tOther Languages\n\n"
-        "Gender (options):\n"
-        "1) Male\n"
-        "2) Female\n\n"
-        "Age example with margin of error: '35 +/- 2'. If unclear, guess or put 'Unknown'.\n\n"
-        "Language (Japanese): Choose 1 Option\n"
-        "1) Native\n"
-        "2) Fluent (Fluent communication in Japanese, or N1, or advanced)\n"
-        "3) Business (N2 level; can speak but not fluent)\n"
-        "4) Reading/Writing (Can communicate over email/resume)\n"
-        "5) None\n\n"
-        "Language (English): Choose 1 Option\n"
-        "1) Native\n"
-        "2) Fluent (Fluent communication, studied abroad, or TOEIC > 900)\n"
-        "3) Business (Can speak English, not fluent)\n"
-        "4) Reading/Writing (Can communicate over email/resume)\n"
-        "5) None\n\n"
-        "If you cannot infer some details, guess or say 'Unknown'.\n"
-    )
+    system_prompt = f"""
+You are a helpful assistant specialized in extracting candidate information from a resume.
+
+Your task:
+- Call the function `get_general_info` **exactly once**.
+- Provide the data in the function's named parameters.
+
+1. **Full Name**: If not explicit, guess from context or say 'Unknown'.
+2. **Current Company** / **Current Position**: Best possible inference or 'Unknown'.
+3. **Previous Company 1** / **Position 1** / **Previous Company 2** / **Position 2**: 
+   - Extract as many past roles/companies as possible (up to 2). If not available, say 'Unknown'.
+4. **Current Country** and **Current City**: Provide best guess or 'Unknown'.
+5. **Age** (with margin of error): Use the format "35 +/- 2" (example). 
+   - If the resume suggests a graduation date, assume graduation age is 21.
+   - If there are any timelines (e.g., first employment year), try to infer an approximate age.
+   - Always guess.
+6. **Gender**:
+    1) Male
+    2) Female
+   - If not mentioned, guess or choose "Unknown".
+7. **Japanese Level** (Choose one):
+    1) Native
+    2) Fluent (Fluent communication in Japanese, or N1, or advanced)
+    3) Business (N2 level; can speak but not fluent)
+    4) Reading/Writing (Can communicate over email/resume)
+    5) None
+    - If not mentioned, guess or choose "Unknown".
+8. **English Level** (Choose one):
+    1) Native
+    2) Fluent (Fluent communication, studied abroad, or TOEIC > 900)
+    3) Business (Can speak English, not fluent)
+    4) Reading/Writing (Can communicate over email/resume)
+    5) None
+    - If not mentioned, guess or choose "Unknown".
+9. **Other Languages**: Provide a list of other relevant languages or say "Unknown".
+
+For reference, today's date is {datetime.now().strftime('%Y-%m-%d')}.
+
+Instructions:
+- **Output must be exactly one function call** to `get_general_info` with the arguments above.
+- Do not provide any extra text or explanation. 
+- Fill in every argument (never leave any argument out).
+- If multiple possibilities exist, choose the most likely.
+"""
 
     answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
 
