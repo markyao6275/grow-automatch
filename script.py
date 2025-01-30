@@ -1,3 +1,4 @@
+import config
 import sys
 import pandas as pd
 
@@ -10,10 +11,8 @@ from display_ui import DisplayUI
 folder_containing_resumes = "./resumes"
 folder_containing_job_descriptions = "./job_descriptions"
 
-candidates_to_score = [0] # If 0, score perfect and strong candidates.
 
 def start_processing():
-    print("Candidates to Score:", candidates_to_score[0])
     processed_resumes_file = process_resumes(folder_containing_resumes)
     if not processed_resumes_file:
         print("No resumes processed")
@@ -38,7 +37,7 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
 
     # Create the DisplayUI instance and pass the start_processing function
-    window = DisplayUI(start_processing, candidates_to_score)
+    window = DisplayUI(start_processing)
     window.show()
 
     sys.exit(app.exec())

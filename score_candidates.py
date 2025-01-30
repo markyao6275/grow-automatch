@@ -1,3 +1,4 @@
+import config
 import csv
 import json
 import os
@@ -42,10 +43,10 @@ scores_table = {
     },
     "Strong Match": {
         "min": 71,
-        "max": 85,
+        "max": 84,
     },
     "Perfect Match": {
-        "min": 86,
+        "min": 85,
         "max": 100,
     },
     "Out of the box": {
@@ -62,25 +63,36 @@ def score_candidates(job_data, processed_resumes_file):
     # Iterate through each resume data
     for index, row in df.iterrows():
         try:
+            if config.candidates_to_score and config.candidates_to_score > 0:
+                if index >= config.candidates_to_score:
+                    break
             candidate_data = row.to_dict()
             print(f"Scoring candidate: {candidate_data.get('name')}")
-            bucket = determine_bucket(candidate_data, job_data)
 
+            bucket = determine_bucket(candidate_data, job_data)
             candidate_data["final_I"] = bucket.get("final_I")
             candidate_data["final_F"] = bucket.get("final_F")
             candidate_data["bucket"] = bucket.get("bucket")
-            candidate_data["score"] = scores_table.get(bucket.get("bucket")).get("max")
-            candidate_data["score"] = determine_base_score(candidate_data)
 
-            if bucket.get("bucket") and candidate_data["score"] >= 70:
-                score = determine_final_score(
+            if not candidate_data["bucket"]:
+                continue
+
+            initial_score = scores_table.get(bucket.get("bucket")).get("max")
+            i4_and_f4_points = get_I4_and_F4_points(candidate_data, job_data)
+            candidate_data["score"] = initial_score + i4_and_f4_points
+            if candidate_data["score"] > 84:
+                candidate_data["bucket"] = "Perfect Match"
+
+            base_score = apply_scoring_rules(candidate_data)
+            candidate_data["score"] = base_score
+
+            if candidate_data["score"] >= 71 or config.candidates_to_score > 0:
+                final_score = determine_final_score(
                     candidate_data.get("resume_text"), candidate_data["score"]
                 )
-                if not score or not score.get("score"):
+                if not final_score or not final_score.get("score"):
                     continue
-                candidate_data["score"] = score.get("score")
-            else:
-                candidate_data["score"] = 0
+                candidate_data["score"] = final_score.get("score")
 
             candidate_data.pop("resume_text")
             scored_candidates.append(candidate_data)
@@ -105,11 +117,9 @@ def determine_bucket(candidate_data, job_data):
         "I1": job_data.get("I1"),
         "I2": job_data.get("I2"),
         "I3": job_data.get("I3"),
-        "I4": job_data.get("I4"),
         "F1": job_data.get("F1"),
         "F2": job_data.get("F2"),
         "F3": job_data.get("F3"),
-        "F4": job_data.get("F4"),
     }
 
     def get_final_matched_level(labels, candidate_labels, category):
@@ -125,7 +135,7 @@ def determine_bucket(candidate_data, job_data):
             str: The final matched label (e.g., 'I2', 'F3').
         """
         last_matched = "0"  # Initialize to '0' indicating no match yet
-        for level in ["1", "2", "3", "4"]:
+        for level in ["1", "2", "3"]:
             key = f"{category}{level}"
             job_label = labels.get(key)
             candidate_label = candidate_labels.get(key)
@@ -146,7 +156,62 @@ def determine_bucket(candidate_data, job_data):
     }
 
 
-def determine_base_score(candidate_data):
+def get_I4_and_F4_points(candidate_data, job_data):
+    def _calculate_points(candidate_tags, job_tags):
+        # Convert to sets so duplicates in either list won't affect bracket or scoring
+        unique_candidate_tags = set(candidate_tags)
+        unique_job_tags = set(job_tags)
+
+        points = 0
+        job_tags_count = len(unique_job_tags)
+
+        # No job tags => 8 points
+        if job_tags_count == 0:
+            points = 8
+        # Exactly 1 job tag => if it matches, award 8
+        elif job_tags_count == 1:
+            if unique_job_tags.pop() in unique_candidate_tags:
+                points = 8
+        # Exactly 2 job tags => each matching tag awards 4
+        elif job_tags_count == 2:
+            for tag in unique_job_tags:
+                if tag in unique_candidate_tags:
+                    points += 4
+        # Exactly 3 job tags => each matching tag awards 3
+        elif job_tags_count == 3:
+            for tag in unique_job_tags:
+                if tag in unique_candidate_tags:
+                    points += 3
+        # More than 3 job tags => each matching tag awards 2
+        else:
+            for tag in unique_job_tags:
+                if tag in unique_candidate_tags:
+                    points += 2
+
+        # Cap the points at 8
+        return min(points, 8)
+
+    candidate_i4 = candidate_data.get("i4")
+    candidate_f4 = candidate_data.get("f4")
+    job_i4 = job_data.get("i4")
+    job_f4 = job_data.get("f4")
+
+    candidate_f4_tags = [keyword.strip() for keyword in candidate_f4.split(",")]
+    candidate_i4_tags = [keyword.strip() for keyword in candidate_i4.split(",")]
+    job_f4_tags = [keyword.strip() for keyword in job_f4.split(",")]
+    job_i4_tags = [keyword.strip() for keyword in job_i4.split(",")]
+
+    f4_points = _calculate_points(candidate_f4_tags, job_f4_tags)
+    i4_points = _calculate_points(candidate_i4_tags, job_i4_tags)
+
+    # If either F4 or I4 points are zero, the entire result is zero
+    if f4_points == 0 or i4_points == 0:
+        return 0
+
+    return f4_points + i4_points
+
+
+def apply_scoring_rules(candidate_data):
     base_score = candidate_data.get("score")
     # Japanese Level
     if candidate_data.get("japanese_level") == "Native":
@@ -212,8 +277,7 @@ Evaluate the candidate's résumé based on the following criteria, assigning poi
 **Instructions:**
 1. **Analyze the candidate's résumé in detail**, considering each of the above categories.
 2. **Ensure that the candidate receives a score that accurately reflects their suitability for the role.**
-3. **Ensure that the candidate receives a score less than {base_score}.**
-4. **Always call the function tool: `score_candidate(<your_total_score>)`**
+3. **Always call the function tool: `score_candidate(<your_total_score>)`**
 """
 
     return generate_score(system_prompt, resume_text, score_candidate_tool)
