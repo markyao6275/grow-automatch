@@ -80,19 +80,21 @@ def score_candidates(job_data, processed_resumes_file):
             initial_score = scores_table.get(bucket.get("bucket")).get("max")
             i4_and_f4_points = get_I4_and_F4_points(candidate_data, job_data)
             candidate_data["score"] = initial_score + i4_and_f4_points
-            if candidate_data["score"] > 84:
+            if candidate_data["score"] >= 85:
                 candidate_data["bucket"] = "Perfect Match"
 
-            base_score = apply_scoring_rules(candidate_data)
+            base_score = get_base_score(candidate_data)
             candidate_data["score"] = base_score
 
             if candidate_data["score"] >= 71 or config.candidates_to_score > 0:
-                final_score = determine_final_score(
+                openai_score = get_openai_score(
                     candidate_data.get("resume_text"), candidate_data["score"]
                 )
-                if not final_score or not final_score.get("score"):
-                    continue
-                candidate_data["score"] = final_score.get("score")
+                if openai_score and openai_score.get("score"):
+                    final_score = (
+                        candidate_data["score"] * openai_score.get("score") / 100
+                    )
+                    candidate_data["score"] = final_score
 
             candidate_data.pop("resume_text")
             scored_candidates.append(candidate_data)
@@ -211,7 +213,7 @@ def get_I4_and_F4_points(candidate_data, job_data):
     return f4_points + i4_points
 
 
-def apply_scoring_rules(candidate_data):
+def get_base_score(candidate_data):
     base_score = candidate_data.get("score")
     # Japanese Level
     if candidate_data.get("japanese_level") == "Native":
@@ -237,7 +239,7 @@ def apply_scoring_rules(candidate_data):
     return base_score if base_score > 0 else 0
 
 
-def determine_final_score(resume_text, job_data, base_score):
+def get_openai_score(resume_text, job_data, base_score):
     score_candidate_tool: ChatCompletionToolParam = {
         "type": "function",
         "function": {
@@ -298,18 +300,28 @@ def generate_score(system_prompt, resume_text, score_candidate_tool):
 
 
 def extract_score(text):
-    """
-    Extracts the numeric score from the given textual answer.
+    def _extract_score_from_json(text):
+        # Regex to find JSON code blocks
+        json_block_pattern = r"```json\s*(\{.*?\})\s*```"
+        matches = re.findall(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
 
-    Parameters:
-        text (str): The textual answer containing the score.
+        for json_str in matches:
+            try:
+                data = json.loads(json_str)
+                # Navigate through the JSON structure to find 'score'
+                # This path may vary; adjust accordingly
+                score = data
+                keys = ["parameters", "score"]
+                for key in keys:
+                    score = score.get(key, {})
+                if isinstance(score, int):
+                    return score
+            except json.JSONDecodeError:
+                continue  # If JSON is invalid, skip to the next match
+            except AttributeError:
+                continue  # If path does not exist, skip
 
-    Returns:
-        int: The extracted score.
-
-    Raises:
-        ValueError: If no score could be found in the text.
-    """
+        return None
 
     # Strategy 1: Look for JSON code blocks and parse them
     json_score = _extract_score_from_json(text)
@@ -338,39 +350,6 @@ def extract_score(text):
 
     # If all strategies fail, raise an error
     raise ValueError("No numeric score found in the provided text.")
-
-
-def _extract_score_from_json(text):
-    """
-    Helper function to extract score from JSON code blocks within the text.
-
-    Parameters:
-        text (str): The textual answer containing JSON code blocks.
-
-    Returns:
-        int or None: The extracted score if found, else None.
-    """
-    # Regex to find JSON code blocks
-    json_block_pattern = r"```json\s*(\{.*?\})\s*```"
-    matches = re.findall(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
-
-    for json_str in matches:
-        try:
-            data = json.loads(json_str)
-            # Navigate through the JSON structure to find 'score'
-            # This path may vary; adjust accordingly
-            score = data
-            keys = ["parameters", "score"]
-            for key in keys:
-                score = score.get(key, {})
-            if isinstance(score, int):
-                return score
-        except json.JSONDecodeError:
-            continue  # If JSON is invalid, skip to the next match
-        except AttributeError:
-            continue  # If path does not exist, skip
-
-    return None
 
 
 def save_scored_candidates(scored_candidates, job_data):
