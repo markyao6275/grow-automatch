@@ -48,13 +48,9 @@ class DisplayUI(QWidget):
         os.makedirs("resumes", exist_ok=True)
         os.makedirs("job_descriptions", exist_ok=True)
 
-        self.start_processing = start_processing_callback
-
         self.setWindowTitle("Grow Match")
         self.setGeometry(100, 100, 600, 400)
-        self.setFixedSize(600, 400)
         self.setWindowIcon(QIcon(icon_path))
-
         self.bg_label = QLabel(self)
         self.bg_pixmap = QPixmap(bg_path)
         self.bg_label.setPixmap(
@@ -237,10 +233,24 @@ class DisplayUI(QWidget):
         main_layout.addWidget(self.submit_button)
 
         self.setLayout(main_layout)
+    
+    def resizeEvent(self, event):
+        self.bg_label.setPixmap(
+            self.bg_pixmap.scaled(
+                self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding
+            )
+        )
+        self.bg_label.setGeometry(self.rect())
+        super().resizeEvent(event)
 
     def toggle_advanced_options(self):
         self.advanced_options_visible = not self.advanced_options_visible
         self.advanced_frame.setVisible(self.advanced_options_visible)
+
+        if self.advanced_options_visible:
+            self.resize(600, 500)
+        else:
+            self.resize(600, 400) 
 
     def browse_resumes(self):
         files, _ = QFileDialog.getOpenFileNames(
