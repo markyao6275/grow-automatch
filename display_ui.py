@@ -14,6 +14,7 @@ from PyQt6.QtWidgets import (
     QSpacerItem,
     QSizePolicy,
     QApplication,
+    QSpinBox,
 )
 from PyQt6.QtGui import QIcon, QPixmap, QFont, QFontDatabase
 from PyQt6.QtCore import Qt
@@ -26,8 +27,11 @@ def resource_path(relative_path):
 
 
 class DisplayUI(QWidget):
-    def __init__(self, start_processing_callback):
+    def __init__(self, start_processing_callback, candidates_to_score):
         super().__init__()
+
+        self.candidates_to_score = candidates_to_score
+        self.start_processing = start_processing_callback
 
         logo_path = resource_path("assets/grow_logo.png")
         bg_path = resource_path("assets/grow_bg.jpeg")
@@ -165,6 +169,58 @@ class DisplayUI(QWidget):
         self.job_desc_layout.addLayout(self.job_desc_input_layout)
         input_container.addWidget(self.job_desc_frame)
 
+        self.advanced_options_visible = False
+        
+        # Advanced Button
+        self.advanced_button = QPushButton("Advanced", self)
+        self.advanced_button.setStyleSheet("""
+            QPushButton {
+                background: transparent;
+                color: white;
+                text-decoration: underline;
+                border: none;
+                font-size: 13px;
+                text-align: right;
+                margin-right: 10px;
+            }
+            QPushButton:hover {
+                color: #004FCC;
+            }
+        """)
+
+        self.advanced_button.setFont(QFont("Russo One", 12))
+        self.advanced_button.clicked.connect(self.toggle_advanced_options)
+        input_container.addWidget(self.advanced_button)
+        
+        # Advanced Options Frame (Initially Hidden)
+        self.advanced_frame = QFrame(self)
+        self.advanced_frame.setVisible(False)
+        self.advanced_layout = QVBoxLayout(self.advanced_frame)
+        
+        self.score_top_label = QLabel("Score Top:", self.advanced_frame)
+        self.score_top_label.setFont(QFont("Russo One", 10))
+        self.advanced_layout.addWidget(self.score_top_label)
+        
+        self.score_top_input = QSpinBox(self.advanced_frame)
+        self.score_top_input.setMinimum(0)
+        self.score_top_input.setValue(0)
+        self.score_top_input.setMaximum(500)
+        self.score_top_input.setFixedWidth(100)
+        self.score_top_input.setStyleSheet("""
+            QSpinBox {
+                background-color: rgba(0, 20, 46, 0.6);
+                color: #e7e7e7;
+                font-size: 14px;
+                padding: 6px;
+                border: 1px solid gray;
+                border-radius: 5px;
+                height: 30px;
+            }
+        """)
+        self.advanced_layout.addWidget(self.score_top_input)
+        
+        input_container.addWidget(self.advanced_frame)
+        
         main_layout.addLayout(input_container)
 
         spacer_bottom = QSpacerItem(
@@ -175,12 +231,16 @@ class DisplayUI(QWidget):
         self.submit_button = QPushButton("START", self)
         self.submit_button.setStyleSheet(
             "background-color: #0074FF; color: #00142D; padding: 10px 20px; font-size: 16px;"
-        )  # Submit button color
+        )
         self.submit_button.setFont(QFont("Russo One", 14))
         self.submit_button.clicked.connect(self.submit_action)
         main_layout.addWidget(self.submit_button)
 
         self.setLayout(main_layout)
+
+    def toggle_advanced_options(self):
+        self.advanced_options_visible = not self.advanced_options_visible
+        self.advanced_frame.setVisible(self.advanced_options_visible)
 
     def browse_resumes(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -227,6 +287,8 @@ class DisplayUI(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to delete files: {str(e)}")
 
     def submit_action(self):
+        self.candidates_to_score[0] = self.score_top_input.value()
+
         if not hasattr(self, "resume_files") or not self.resume_files:
             QMessageBox.critical(self, "Error", "Please select at least one resume.")
             return
