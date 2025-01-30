@@ -1,3 +1,4 @@
+import config
 import os
 import sys
 import shutil
@@ -27,10 +28,9 @@ def resource_path(relative_path):
 
 
 class DisplayUI(QWidget):
-    def __init__(self, start_processing_callback, candidates_to_score):
+    def __init__(self, start_processing_callback):
         super().__init__()
 
-        self.candidates_to_score = candidates_to_score
         self.start_processing = start_processing_callback
 
         logo_path = resource_path("assets/grow_logo.png")
@@ -48,13 +48,9 @@ class DisplayUI(QWidget):
         os.makedirs("resumes", exist_ok=True)
         os.makedirs("job_descriptions", exist_ok=True)
 
-        self.start_processing = start_processing_callback
-
         self.setWindowTitle("Grow Match")
         self.setGeometry(100, 100, 600, 400)
-        self.setFixedSize(600, 400)
         self.setWindowIcon(QIcon(icon_path))
-
         self.bg_label = QLabel(self)
         self.bg_pixmap = QPixmap(bg_path)
         self.bg_label.setPixmap(
@@ -170,10 +166,11 @@ class DisplayUI(QWidget):
         input_container.addWidget(self.job_desc_frame)
 
         self.advanced_options_visible = False
-        
+
         # Advanced Button
         self.advanced_button = QPushButton("Advanced", self)
-        self.advanced_button.setStyleSheet("""
+        self.advanced_button.setStyleSheet(
+            """
             QPushButton {
                 background: transparent;
                 color: white;
@@ -186,27 +183,29 @@ class DisplayUI(QWidget):
             QPushButton:hover {
                 color: #004FCC;
             }
-        """)
+        """
+        )
 
         self.advanced_button.setFont(QFont("Russo One", 12))
         self.advanced_button.clicked.connect(self.toggle_advanced_options)
         input_container.addWidget(self.advanced_button)
-        
+
         # Advanced Options Frame (Initially Hidden)
         self.advanced_frame = QFrame(self)
         self.advanced_frame.setVisible(False)
         self.advanced_layout = QVBoxLayout(self.advanced_frame)
-        
+
         self.score_top_label = QLabel("Score Top:", self.advanced_frame)
         self.score_top_label.setFont(QFont("Russo One", 10))
         self.advanced_layout.addWidget(self.score_top_label)
-        
+
         self.score_top_input = QSpinBox(self.advanced_frame)
         self.score_top_input.setMinimum(0)
         self.score_top_input.setValue(0)
         self.score_top_input.setMaximum(500)
         self.score_top_input.setFixedWidth(100)
-        self.score_top_input.setStyleSheet("""
+        self.score_top_input.setStyleSheet(
+            """
             QSpinBox {
                 background-color: rgba(0, 20, 46, 0.6);
                 color: #e7e7e7;
@@ -216,11 +215,12 @@ class DisplayUI(QWidget):
                 border-radius: 5px;
                 height: 30px;
             }
-        """)
+        """
+        )
         self.advanced_layout.addWidget(self.score_top_input)
-        
+
         input_container.addWidget(self.advanced_frame)
-        
+
         main_layout.addLayout(input_container)
 
         spacer_bottom = QSpacerItem(
@@ -238,9 +238,23 @@ class DisplayUI(QWidget):
 
         self.setLayout(main_layout)
 
+    def resizeEvent(self, event):
+        self.bg_label.setPixmap(
+            self.bg_pixmap.scaled(
+                self.size(), Qt.AspectRatioMode.KeepAspectRatioByExpanding
+            )
+        )
+        self.bg_label.setGeometry(self.rect())
+        super().resizeEvent(event)
+
     def toggle_advanced_options(self):
         self.advanced_options_visible = not self.advanced_options_visible
         self.advanced_frame.setVisible(self.advanced_options_visible)
+
+        if self.advanced_options_visible:
+            self.resize(600, 500)
+        else:
+            self.resize(600, 400)
 
     def browse_resumes(self):
         files, _ = QFileDialog.getOpenFileNames(
@@ -287,7 +301,7 @@ class DisplayUI(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to delete files: {str(e)}")
 
     def submit_action(self):
-        self.candidates_to_score[0] = self.score_top_input.value()
+        config.candidates_to_score = self.score_top_input.value() or 0
 
         if not hasattr(self, "resume_files") or not self.resume_files:
             QMessageBox.critical(self, "Error", "Please select at least one resume.")

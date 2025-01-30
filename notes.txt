@@ -1,0 +1,7 @@
+New flow
+- Disregard Non-Japanese candidates
+- don't pass base score to ChatGPT.
+- Use the score from ChatGPT as a percentage to apply on thge base_score (max)
+- Apply scoring rules after ChatGPT scores
+
+Include scores before and after ChatGPT scores

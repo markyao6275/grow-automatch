@@ -1,3 +1,4 @@
+import config
 import csv
 import json
 import os
@@ -42,10 +43,10 @@ scores_table = {
     },
     "Strong Match": {
         "min": 71,
-        "max": 85,
+        "max": 84,
     },
     "Perfect Match": {
-        "min": 86,
+        "min": 85,
         "max": 100,
     },
     "Out of the box": {
@@ -56,93 +57,54 @@ scores_table = {
 
 
 def score_candidates(job_data, processed_resumes_file):
-    job_labels = {
-        "I1": job_data.get("I1"),
-        "I2": job_data.get("I2"),
-        "I3": job_data.get("I3"),
-        "I4": job_data.get("I4"),
-        "F1": job_data.get("F1"),
-        "F2": job_data.get("F2"),
-        "F3": job_data.get("F3"),
-        "F4": job_data.get("F4"),
-    }
     scored_candidates = []
-
     # Read the CSV file
     df = pd.read_csv(processed_resumes_file)
     # Iterate through each resume data
     for index, row in df.iterrows():
         try:
+            if config.candidates_to_score and config.candidates_to_score > 0:
+                if index >= config.candidates_to_score:
+                    break
             candidate_data = row.to_dict()
             print(f"Scoring candidate: {candidate_data.get('name')}")
-            bucket = determine_bucket(candidate_data, job_labels)
+
+            bucket = determine_bucket(candidate_data, job_data)
             candidate_data["final_I"] = bucket.get("final_I")
             candidate_data["final_F"] = bucket.get("final_F")
             candidate_data["bucket"] = bucket.get("bucket")
 
-            candidate_data["score"] = scores_table.get(bucket.get("bucket")).get("max")
-            candidate_data["score"] = apply_score_rules(candidate_data)
+            if not candidate_data["bucket"]:
+                continue
 
-            if bucket.get("bucket") and candidate_data["score"] >= 70:
-                score = score_candidate(
+            initial_score = scores_table.get(bucket.get("bucket")).get("max")
+            i4_and_f4_points = get_I4_and_F4_points(candidate_data, job_data)
+            candidate_data["score"] = initial_score + i4_and_f4_points
+            if candidate_data["score"] >= 85:
+                candidate_data["bucket"] = "Perfect Match"
+
+            base_score = get_base_score(candidate_data)
+            candidate_data["score"] = base_score
+
+            if candidate_data["score"] >= 71 or config.candidates_to_score > 0:
+                openai_score = get_openai_score(
                     candidate_data.get("resume_text"), candidate_data["score"]
                 )
-                if not score or not score.get("score"):
-                    continue
-                candidate_data["score"] = score.get("score")
-            else:
-                candidate_data["score"] = 0
+                if openai_score and openai_score.get("score"):
+                    final_score = (
+                        candidate_data["score"] * openai_score.get("score") / 100
+                    )
+                    candidate_data["score"] = final_score
 
             candidate_data.pop("resume_text")
             scored_candidates.append(candidate_data)
         except Exception as e:
             print(f"Error calling OpenAI API for {job_data.get('name')}: {e}")
 
-    output_dir = "output/scored_candidates"
-    os.makedirs(output_dir, exist_ok=True)
-    output_file = os.path.join(
-        output_dir,
-        f"{sanitize_filename(job_data.get('company'))}_{sanitize_filename(job_data.get('position'))}_scored_candidates.csv",
-    )
-    scored_candidates = sorted(
-        scored_candidates, key=lambda x: x.get("score", 0), reverse=True
-    )
-    if scored_candidates:
-        fieldnames = list(scored_candidates[0].keys())
-
-        with open(output_file, "w", encoding="utf-8", newline="") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
-            writer.writeheader()
-            writer.writerows(scored_candidates)
+    save_scored_candidates(scored_candidates, job_data)
 
 
-def apply_score_rules(candidate_data):
-    score = candidate_data.get("score")
-    # Japanese Level
-    if candidate_data.get("japanese_level") == "Native":
-        score -= 0
-    elif candidate_data.get("japanese_level") == "Fluent":
-        score -= 1
-    elif candidate_data.get("japanese_level") == "Business":
-        score -= 10
-    elif candidate_data.get("japanese_level") == "Reading/Writing":
-        score -= 20
-    elif candidate_data.get("japanese_level") == "None/Unknown":
-        score -= 30
-
-    # Location
-    if candidate_data.get("country") == "Japan":
-        score -= 0
-    elif candidate_data.get("country") != "Japan":
-        if candidate_data.get("japanese_level") == "None/Unknown":
-            score -= 50
-        else:
-            score -= 5
-
-    return score if score > 0 else 0
-
-
-def determine_bucket(candidate_data, job_labels):
+def determine_bucket(candidate_data, job_data):
     """
     Determines the evaluation bucket for a candidate based on the matching of 'I' and 'F' labels.
 
@@ -153,6 +115,14 @@ def determine_bucket(candidate_data, job_labels):
     Returns:
         str: The evaluation label based on the matching algorithm.
     """
+    job_labels = {
+        "I1": job_data.get("I1"),
+        "I2": job_data.get("I2"),
+        "I3": job_data.get("I3"),
+        "F1": job_data.get("F1"),
+        "F2": job_data.get("F2"),
+        "F3": job_data.get("F3"),
+    }
 
     def get_final_matched_level(labels, candidate_labels, category):
         """
@@ -167,7 +137,7 @@ def determine_bucket(candidate_data, job_labels):
             str: The final matched label (e.g., 'I2', 'F3').
         """
         last_matched = "0"  # Initialize to '0' indicating no match yet
-        for level in ["1", "2", "3", "4"]:
+        for level in ["1", "2", "3"]:
             key = f"{category}{level}"
             job_label = labels.get(key)
             candidate_label = candidate_labels.get(key)
@@ -177,11 +147,8 @@ def determine_bucket(candidate_data, job_labels):
                 break  # Stop at the first mismatch
         return f"{category}{last_matched}"
 
-    # Determine the final matched 'I' level
     final_I = get_final_matched_level(job_labels, candidate_data, "I")
-    # Determine the final matched 'F' level
     final_F = get_final_matched_level(job_labels, candidate_data, "F")
-    # Look up the evaluation label from the mapping table
     evaluation_label = buckets_table.get((final_F, final_I), "")
 
     return {
@@ -191,8 +158,88 @@ def determine_bucket(candidate_data, job_labels):
     }
 
 
-# TODO: Refine prompt
-def score_candidate(resume_text, base_score):
+def get_I4_and_F4_points(candidate_data, job_data):
+    def _calculate_points(candidate_tags, job_tags):
+        # Convert to sets so duplicates in either list won't affect bracket or scoring
+        unique_candidate_tags = set(candidate_tags)
+        unique_job_tags = set(job_tags)
+
+        points = 0
+        job_tags_count = len(unique_job_tags)
+
+        # No job tags => 8 points
+        if job_tags_count == 0:
+            points = 8
+        # Exactly 1 job tag => if it matches, award 8
+        elif job_tags_count == 1:
+            if unique_job_tags.pop() in unique_candidate_tags:
+                points = 8
+        # Exactly 2 job tags => each matching tag awards 4
+        elif job_tags_count == 2:
+            for tag in unique_job_tags:
+                if tag in unique_candidate_tags:
+                    points += 4
+        # Exactly 3 job tags => each matching tag awards 3
+        elif job_tags_count == 3:
+            for tag in unique_job_tags:
+                if tag in unique_candidate_tags:
+                    points += 3
+        # More than 3 job tags => each matching tag awards 2
+        else:
+            for tag in unique_job_tags:
+                if tag in unique_candidate_tags:
+                    points += 2
+
+        # Cap the points at 8
+        return min(points, 8)
+
+    candidate_i4 = candidate_data.get("i4")
+    candidate_f4 = candidate_data.get("f4")
+    job_i4 = job_data.get("i4")
+    job_f4 = job_data.get("f4")
+
+    candidate_f4_tags = [keyword.strip() for keyword in candidate_f4.split(",")]
+    candidate_i4_tags = [keyword.strip() for keyword in candidate_i4.split(",")]
+    job_f4_tags = [keyword.strip() for keyword in job_f4.split(",")]
+    job_i4_tags = [keyword.strip() for keyword in job_i4.split(",")]
+
+    f4_points = _calculate_points(candidate_f4_tags, job_f4_tags)
+    i4_points = _calculate_points(candidate_i4_tags, job_i4_tags)
+
+    # If either F4 or I4 points are zero, the entire result is zero
+    if f4_points == 0 or i4_points == 0:
+        return 0
+
+    return f4_points + i4_points
+
+
+def get_base_score(candidate_data):
+    base_score = candidate_data.get("score")
+    # Japanese Level
+    if candidate_data.get("japanese_level") == "Native":
+        base_score -= 0
+    elif candidate_data.get("japanese_level") == "Fluent":
+        base_score -= 1
+    elif candidate_data.get("japanese_level") == "Business":
+        base_score -= 10
+    elif candidate_data.get("japanese_level") == "Reading/Writing":
+        base_score -= 20
+    elif candidate_data.get("japanese_level") == "None/Unknown":
+        base_score -= 30
+
+    # Location
+    if candidate_data.get("country") == "Japan":
+        base_score -= 0
+    elif candidate_data.get("country") != "Japan":
+        if candidate_data.get("japanese_level") == "None/Unknown":
+            base_score -= 50
+        else:
+            base_score -= 5
+
+    return base_score if base_score > 0 else 0
+
+
+def get_openai_score(resume_text, job_data, base_score):
     score_candidate_tool: ChatCompletionToolParam = {
         "type": "function",
         "function": {
@@ -203,7 +250,7 @@ def score_candidate(resume_text, base_score):
                 "properties": {
                     "score": {
                         "type": "number",
-                        "description": f"Number between {min_score} and {max_score}",
+                        "description": f"Number between 0 and {base_score}",
                     },
                 },
                 "required": ["score"],
@@ -211,34 +258,28 @@ def score_candidate(resume_text, base_score):
         },
     }
 
-    portion_weight = (100 - base_score) / 6
-    # Include the "table" and instructions in the system_prompt:
     system_prompt = f"""
-You are a highly skilled assistant tasked with evaluating and scoring candidates for the Field Sales position at Wolt in Tokyo, Japan.
+You are a highly skilled assistant tasked with evaluating and scoring candidates for the {job_data.get("position")} position at {job_data.get("company")} in {job_data.get("country")}.
 
 **Job Information:**
-- **Company:** Wolt
-- **Position:** Field Sales
-- **Location:** Tokyo, Japan
+- **Company:** {job_data.get("company")}
+- **Position:** {job_data.get("position")}
+- **Location:** {job_data.get("country")}
 
 **Scoring Guidelines:**
 Evaluate the candidate's résumé based on the following criteria, assigning points to each category as appropriate:
 
-1. **Relevant Experience (0-{portion_weight}):**
-2. **Education (0-{portion_weight}):**
-3. **Skills (0-{portion_weight}):**
-4. **Cultural Fit (0-{portion_weight}):**
-5. **Achievements (0-{portion_weight}):**
-6. **Additional Factors (0-{portion_weight}):**
-
-**TOTAL SCORE:** Sum of all category scores and add {base_score}
+1. **Relevant Experience:**
+2. **Education:**
+3. **Skills:**
+4. **Cultural Fit:**
+5. **Achievements:**
+6. **Additional Factors:**
 
 **Instructions:**
 1. **Analyze the candidate's résumé in detail**, considering each of the above categories.
-2. **Assign a score for each category** based on the candidate's qualifications and experiences.
-3. **Calculate the total score** by summing the individual category scores.
-4. **Ensure that each candidate receives a score** that accurately reflects their suitability for the role.
-6. **Always call the function tool:** `score_candidate(<your_total_score>)`
+2. **Ensure that the candidate receives a score that accurately reflects their suitability for the role.**
+3. **Always call the function tool: `score_candidate(<your_total_score>)`**
 """
 
     return generate_score(system_prompt, resume_text, score_candidate_tool)
@@ -259,18 +300,28 @@ def generate_score(system_prompt, resume_text, score_candidate_tool):
 
 
 def extract_score(text):
-    """
-    Extracts the numeric score from the given textual answer.
+    def _extract_score_from_json(text):
+        # Regex to find JSON code blocks
+        json_block_pattern = r"```json\s*(\{.*?\})\s*```"
+        matches = re.findall(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
 
-    Parameters:
-        text (str): The textual answer containing the score.
+        for json_str in matches:
+            try:
+                data = json.loads(json_str)
+                # Navigate through the JSON structure to find 'score'
+                # This path may vary; adjust accordingly
+                score = data
+                keys = ["parameters", "score"]
+                for key in keys:
+                    score = score.get(key, {})
+                if isinstance(score, int):
+                    return score
+            except json.JSONDecodeError:
+                continue  # If JSON is invalid, skip to the next match
+            except AttributeError:
+                continue  # If path does not exist, skip
 
-    Returns:
-        int: The extracted score.
-
-    Raises:
-        ValueError: If no score could be found in the text.
-    """
+        return None
 
     # Strategy 1: Look for JSON code blocks and parse them
     json_score = _extract_score_from_json(text)
@@ -301,37 +352,23 @@ def extract_score(text):
     raise ValueError("No numeric score found in the provided text.")
 
 
-def _extract_score_from_json(text):
-    """
-    Helper function to extract score from JSON code blocks within the text.
+def save_scored_candidates(scored_candidates, job_data):
+    output_dir = "output/scored_candidates"
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(
+        output_dir,
+        f"{sanitize_filename(job_data.get('company'))}_{sanitize_filename(job_data.get('position'))}_scored_candidates.csv",
+    )
+    scored_candidates = sorted(
+        scored_candidates, key=lambda x: x.get("score", 0), reverse=True
+    )
+    if scored_candidates:
+        fieldnames = list(scored_candidates[0].keys())
 
-    Parameters:
-        text (str): The textual answer containing JSON code blocks.
-
-    Returns:
-        int or None: The extracted score if found, else None.
-    """
-    # Regex to find JSON code blocks
-    json_block_pattern = r"```json\s*(\{.*?\})\s*```"
-    matches = re.findall(json_block_pattern, text, re.DOTALL | re.IGNORECASE)
-
-    for json_str in matches:
-        try:
-            data = json.loads(json_str)
-            # Navigate through the JSON structure to find 'score'
-            # This path may vary; adjust accordingly
-            score = data
-            keys = ["parameters", "score"]
-            for key in keys:
-                score = score.get(key, {})
-            if isinstance(score, int):
-                return score
-        except json.JSONDecodeError:
-            continue  # If JSON is invalid, skip to the next match
-        except AttributeError:
-            continue  # If path does not exist, skip
-
-    return None
+        with open(output_file, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(scored_candidates)
 
 
 def sanitize_filename(filename):
