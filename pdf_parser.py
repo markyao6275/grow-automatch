@@ -1,7 +1,9 @@
+import io
 import pytesseract
-from pdf2image import convert_from_path
 
-from PyPDF2 import PdfReader
+from pdfminer.high_level import extract_text_to_fp
+from pdfminer.layout import LAParams
+from pdf2image import convert_from_path
 
 
 def get_text_using_ocr(pdf_path, dpi=300, lang="eng"):
@@ -30,16 +32,19 @@ def get_text_using_ocr(pdf_path, dpi=300, lang="eng"):
 
 def extract_text_from_pdf(pdf_path):
     """
-    Extract text from a PDF file using PyPDF2.
+    Extract text from a PDF file using pdfminer.six.
+    Attempts to preserve layout more accurately than PyPDF2.
     """
-    text_content = []
+    output = io.StringIO()
+    laparams = LAParams(
+        line_margin=0.2,  # tweak to handle tighter or looser line spacing
+        char_margin=2.0,  # tweak to merge or separate characters/words more
+        word_margin=0.1,  # tweak to join words split across lines
+    )
     with open(pdf_path, "rb") as f:
-        reader = PdfReader(f)
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text_content.append(page_text)
-    return "\n".join(text_content)
+        extract_text_to_fp(f, output, laparams=laparams, output_type="text", codec=None)
+    text = output.getvalue()
+    return text
 
 
 def parse_pdf_to_text(pdf_path, dpi=300, lang="eng"):
@@ -57,6 +62,8 @@ def parse_pdf_to_text(pdf_path, dpi=300, lang="eng"):
 
     # Get text using direct extraction
     direct_text = extract_text_from_pdf(pdf_path)
+
+    print(direct_text)
 
     # Combine both results with a separator
     combined_text = (
