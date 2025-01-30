@@ -301,7 +301,7 @@ class DisplayUI(QWidget):
             QMessageBox.critical(self, "Error", f"Failed to delete files: {str(e)}")
 
     def submit_action(self):
-        config.candidates_to_score = self.score_top_input.value()
+        config.candidates_to_score = self.score_top_input.value() or 0
 
         if not hasattr(self, "resume_files") or not self.resume_files:
             QMessageBox.critical(self, "Error", "Please select at least one resume.")
