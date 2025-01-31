@@ -102,21 +102,23 @@ def extract_job_general_info(pdf_text):
                         "enum": [4, 5, 6, 7, 8, 9, 10, 11, 12],
                         "description": "The level of the job description",
                     },
+                    "company_size": {
+                        "type": "string",
+                        "enum": ["0-10", "10-50", "50-100", "100+"],
+                        "description": "The company's size",
+                    },
                     "company_hq_location": {
                         "type": "string",
                         "enum": ["Japan", "Global"],
                         "description": "The company's headquarters location",
                     },
-                    "company_size": {
+                    "employee_count_in_japan": {
                         "type": "string",
                         "enum": [
-                            "0-50",
-                            "51-100",
-                            "101-500",
-                            "501-1000",
-                            "1001-1500",
-                            "1501-2000",
-                            "2000+",
+                            "0-10",
+                            "10-50",
+                            "50-100",
+                            "100+",
                         ],
                         "description": "The company's size",
                     },
@@ -131,8 +133,7 @@ def extract_job_general_info(pdf_text):
                         "description": "The Japanese level required for the job description",
                     },
                     "target_age": {
-                        "type": "string",
-                        "enum": ["20s", "30s", "40s", "50s"],
+                        "type": "number",
                         "description": "The target age for the job description",
                     },
                 },
@@ -144,6 +145,7 @@ def extract_job_general_info(pdf_text):
                     "job_level",
                     "company_size",
                     "company_hq_location",
+                    "employee_count_in_japan",
                     "english_level_required",
                     "japanese_level_required",
                     "target_age",
@@ -173,11 +175,12 @@ Your goal is to identify and provide the following details by calling the functi
      - 11: Area VP
      - 12: VP
 6. company_size (Required) — Must be one of:
-   ["0-50", "51-100", "101-500", "501-1000", "1001-1500", "1501-2000", "2000+"]
-7. company_hq_location (Required) — Must be one of: ["Japan", "Global"]
-8. english_level_required (Required) — Must be one of: ["Native", "Fluent", "Intermediate", "Basic"]
-9. japanese_level_required (Required) — Must be one of: ["N2", "N3", "N4", "N5"]
-10. target_age (Required) — Must be one of: ["20s", "30s", "40s", "50s"]
+   ["0-10", "10-50", "50-100", "100+"]
+7. employee_count_in_japan (Required) — Must be one of: ["0-10", "10-50", "50-100", "100+"]
+8. company_hq_location (Required) — Must be one of: ["Japan", "Global"]
+9. english_level_required (Required) — Must be one of: ["Native", "Fluent", "Intermediate", "Basic"]
+10. japanese_level_required (Required) — Must be one of: ["N2", "N3", "N4", "N5"]
+11. target_age (Required)
 
 If you cannot infer a particular detail, guess as best as you can.
 

@@ -1,10 +1,10 @@
-import config
 import csv
 import json
 import os
 import pandas as pd
 import re
 
+from config import candidates_to_score_count
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 
@@ -63,9 +63,6 @@ def score_candidates(job_data, processed_resumes_file):
     # Iterate through each resume data
     for index, row in df.iterrows():
         try:
-            if config.candidates_to_score and config.candidates_to_score > 0:
-                if index >= config.candidates_to_score:
-                    break
             candidate_data = row.to_dict()
             print(f"Scoring candidate: {candidate_data.get('name')}")
 
@@ -73,28 +70,31 @@ def score_candidates(job_data, processed_resumes_file):
             candidate_data["final_I"] = bucket.get("final_I")
             candidate_data["final_F"] = bucket.get("final_F")
             candidate_data["bucket"] = bucket.get("bucket")
+            candidate_data["bucket_score"] = 0
+            candidate_data["openai_score"] = 0
+            candidate_data["rule_based_score"] = 0
+            candidate_data["final_score"] = 0
 
-            if not candidate_data["bucket"]:
-                continue
+            if candidate_data["bucket"]:
+                initial_score = scores_table.get(bucket.get("bucket")).get("max")
+                i4_and_f4_points = get_I4_and_F4_points(candidate_data, job_data)
+                candidate_data["bucket_score"] = initial_score + i4_and_f4_points
 
-            initial_score = scores_table.get(bucket.get("bucket")).get("max")
-            i4_and_f4_points = get_I4_and_F4_points(candidate_data, job_data)
-            candidate_data["score"] = initial_score + i4_and_f4_points
-            if candidate_data["score"] >= 85:
-                candidate_data["bucket"] = "Perfect Match"
+                if candidate_data["bucket_score"] >= 85:
+                    candidate_data["bucket"] = "Perfect Match"
 
-            base_score = get_base_score(candidate_data)
-            candidate_data["score"] = base_score
-
-            if candidate_data["score"] >= 71 or config.candidates_to_score > 0:
-                openai_score = get_openai_score(
-                    candidate_data.get("resume_text"), candidate_data["score"]
-                )
-                if openai_score and openai_score.get("score"):
-                    final_score = (
-                        candidate_data["score"] * openai_score.get("score") / 100
+                if candidate_data["bucket_score"] >= 71 or (
+                    candidates_to_score_count > 0 and index < candidates_to_score_count
+                ):
+                    openai_score = get_openai_score(
+                        candidate_data.get("resume_text"), job_data
                     )
-                    candidate_data["score"] = final_score
+                    candidate_data["openai_score"] = openai_score
+                    candidate_data["final_score"] = openai_score
+                else:
+                    rule_based_score = get_rule_based_score(candidate_data, job_data)
+                    candidate_data["rule_based_score"] = rule_based_score
+                    candidate_data["final_score"] = rule_based_score
 
             candidate_data.pop("resume_text")
             scored_candidates.append(candidate_data)
@@ -159,6 +159,12 @@ def determine_bucket(candidate_data, job_data):
 
 
 def get_I4_and_F4_points(candidate_data, job_data):
+    if (
+        not candidate_data.get("final_I") == "I4"
+        or not candidate_data.get("final_F") == "F4"
+    ):
+        return 0
+
     def _calculate_points(candidate_tags, job_tags):
         # Convert to sets so duplicates in either list won't affect bracket or scoring
         unique_candidate_tags = set(candidate_tags)
@@ -206,40 +212,69 @@ def get_I4_and_F4_points(candidate_data, job_data):
     f4_points = _calculate_points(candidate_f4_tags, job_f4_tags)
     i4_points = _calculate_points(candidate_i4_tags, job_i4_tags)
 
-    # If either F4 or I4 points are zero, the entire result is zero
-    if f4_points == 0 or i4_points == 0:
-        return 0
-
     return f4_points + i4_points
 
 
-def get_base_score(candidate_data):
-    base_score = candidate_data.get("score")
-    # Japanese Level
-    if candidate_data.get("japanese_level") == "Native":
-        base_score -= 0
-    elif candidate_data.get("japanese_level") == "Fluent":
-        base_score -= 1
-    elif candidate_data.get("japanese_level") == "Business":
-        base_score -= 10
-    elif candidate_data.get("japanese_level") == "Reading/Writing":
-        base_score -= 20
-    elif candidate_data.get("japanese_level") == "None/Unknown":
-        base_score -= 30
+def get_rule_based_score(candidate_data, job_data):
+    rule_based_score = candidate_data.get("bucket_score")
 
     # Location
-    if candidate_data.get("country") == "Japan":
-        base_score -= 0
-    elif candidate_data.get("country") != "Japan":
-        if candidate_data.get("japanese_level") == "None/Unknown":
-            base_score -= 50
+    if candidate_data.get("country") != "Japan":
+        if candidate_data.get("japanese_level") == "Native":
+            rule_based_score -= 10
         else:
-            base_score -= 5
+            rule_based_score -= 50
 
-    return base_score if base_score > 0 else 0
+    # Age
+    age_difference = abs(
+        int(re.search(r"\d+", candidate_data.get("age")).group())
+        - job_data.get("target_age")
+    )
+    if age_difference > 3:  # Only apply penalty if outside the +/-3 year range
+        rule_based_score -= (
+            age_difference - 3
+        ) * 2  # -2 points per year beyond the 3-year range
+
+    # Gender
+    if candidate_data.get("gender") == "Female":
+        rule_based_score += 5
+
+    # Japanese Level
+    if candidate_data.get("japanese_level") == "Fluent":
+        rule_based_score -= 5
+    elif candidate_data.get("japanese_level") == "Business":
+        rule_based_score -= 15
+    elif candidate_data.get("japanese_level") == "Reading/Writing":
+        rule_based_score -= 20
+    elif candidate_data.get("japanese_level") == "None/Unknown":
+        rule_based_score -= 30
+
+    # English Level
+    if job_data.get("company_hq_location") == "Japan":
+        if (
+            candidate_data.get("english_level") == "Native"
+            or candidate_data.get("english_level") == "Fluent"
+        ):
+            rule_based_score += 5
+        elif candidate_data.get("english_level") == "Business":
+            rule_based_score += 3
+        elif candidate_data.get("english_level") == "Reading/Writing":
+            rule_based_score += 1
+    else:
+        if (
+            candidate_data.get("english_level") == "Native"
+            or candidate_data.get("english_level") == "Fluent"
+        ):
+            rule_based_score += 10
+        elif candidate_data.get("english_level") == "Reading/Writing":
+            rule_based_score -= 10
+        elif candidate_data.get("english_level") == "None":
+            rule_based_score -= 20
+
+    return rule_based_score if rule_based_score > 0 else 0
 
 
-def get_openai_score(resume_text, job_data, base_score):
+def get_openai_score(resume_text, job_data):
     score_candidate_tool: ChatCompletionToolParam = {
         "type": "function",
         "function": {
@@ -250,7 +285,7 @@ def get_openai_score(resume_text, job_data, base_score):
                 "properties": {
                     "score": {
                         "type": "number",
-                        "description": f"Number between 0 and {base_score}",
+                        "description": "Number between 0 and 100",
                     },
                 },
                 "required": ["score"],
@@ -265,6 +300,11 @@ You are a highly skilled assistant tasked with evaluating and scoring candidates
 - **Company:** {job_data.get("company")}
 - **Position:** {job_data.get("position")}
 - **Location:** {job_data.get("country")}
+- **Employee Count in Japan:** {job_data.get("employee_count_in_japan")}
+- **Ideal English Level:** {job_data.get("english_level_required")}
+- **Ideal Japanese Level:** {job_data.get("japanese_level_required")}
+- **Target Age:** {job_data.get("target_age")}
+- **Job Level:** {job_data.get("job_level")}
 
 **Scoring Guidelines:**
 Evaluate the candidate's résumé based on the following criteria, assigning points to each category as appropriate:
@@ -294,9 +334,9 @@ def generate_score(system_prompt, resume_text, score_candidate_tool):
     if not answer.tool_calls:
         textual_answer = answer.content
         score = extract_score(textual_answer)
-        return {"score": score} if score else None
+        return score
 
-    return json.loads(answer.tool_calls[0].function.arguments)
+    return json.loads(answer.tool_calls[0].function.arguments).get("score")
 
 
 def extract_score(text):
@@ -360,7 +400,7 @@ def save_scored_candidates(scored_candidates, job_data):
         f"{sanitize_filename(job_data.get('company'))}_{sanitize_filename(job_data.get('position'))}_scored_candidates.csv",
     )
     scored_candidates = sorted(
-        scored_candidates, key=lambda x: x.get("score", 0), reverse=True
+        scored_candidates, key=lambda x: x.get("final_score", 0), reverse=True
     )
     if scored_candidates:
         fieldnames = list(scored_candidates[0].keys())

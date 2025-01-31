@@ -1,1 +1,1 @@
-candidates_to_score = 0
+candidates_to_score_count = 0
