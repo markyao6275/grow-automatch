@@ -1,4 +1,3 @@
-import config
 import sys
 import pandas as pd
 

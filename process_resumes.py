@@ -30,7 +30,7 @@ def process_resumes(folder_path):
             try:
                 candidate_profile = {"filename": pdf_path}
 
-                general_info = get_general_info(pdf_text)
+                general_info = extract_general_info(pdf_text)
                 industry_labels = generate_industry_labels(pdf_text)
                 function_labels = generate_function_labels(pdf_text)
 
@@ -69,19 +69,12 @@ def process_resumes(folder_path):
     return output_file
 
 
-def get_general_info(pdf_text):
-    """
-    Reads in resume/profile text (pdf_text) and returns a single data row for easy pasting into Google Sheets.
-    Columns:
-      Full Name | Current Company | Current Position | Previous Company 1 | Position 1 |
-      Previous Company 2 | Previous Position 2 | Current Country | Current City (Prefecture) |
-      Age (+/- x) | Gender | Japanese Level | English Level | Other Languages
-    """
-    get_generate_info_tool: ChatCompletionToolParam = {
+def extract_general_info(pdf_text):
+    submit_general_info_tool: ChatCompletionToolParam = {
         "type": "function",
         "function": {
-            "name": "get_general_info",
-            "description": "Get candidate's general information from the resume text",
+            "name": "submit_general_info",
+            "description": "Submit candidate's general information",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -161,11 +154,12 @@ def get_general_info(pdf_text):
             },
         },
     }
+
     system_prompt = f"""
 You are a helpful assistant specialized in extracting candidate information from a resume.
 
 Your task:
-- Call the function `get_general_info` **exactly once**.
+- Call the function `submit_general_info` **exactly once**.
 - Provide the data in the function's named parameters.
 
 1. **Full Name**: If not explicit, guess from context or say 'Unknown'.
@@ -201,13 +195,13 @@ Your task:
 For reference, today's date is {datetime.now().strftime('%Y-%m-%d')}.
 
 Instructions:
-- **Output must be exactly one function call** to `get_general_info` with the arguments above.
+- **Output must be exactly one function call** to `submit_general_info` with the arguments above.
 - Do not provide any extra text or explanation. 
 - Fill in every argument (never leave any argument out).
 - If multiple possibilities exist, choose the most likely.
 """
 
-    answer = call_openai_api(system_prompt, pdf_text, tools=[get_generate_info_tool])
+    answer = call_openai_api(system_prompt, pdf_text, tools=[submit_general_info_tool])
 
     if (
         not answer
@@ -220,11 +214,11 @@ Instructions:
 
 
 def generate_industry_labels(pdf_text):
-    generate_industry_labels_tool = {
+    submit_candidate_industry_labels_tool = {
         "type": "function",
         "function": {
-            "name": "generate_industry_labels",
-            "description": "Generate industry labels for the candidate",
+            "name": "submit_position_industry_labels",
+            "description": "Submit industry labels for the candidate",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -249,23 +243,24 @@ def generate_industry_labels(pdf_text):
             },
         },
     }
-    system_prompt = (
-        "You are a helpful assistant evaluating candidate information from a resume.\n\n"
-        "Use the function 'generate_industry_labels' to provide the candidate's:\n"
-        "Reference the following Industry grid and select the best fit option.\n"
-        "Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag English keywords for better sorting.\n"
-        "You cannot change rows. For example, anyone in I2 Cloud must be in SaaS, XaaS, Security, or Consulting for I3.\n\n"
-        "I1: Digital; I2: Platform; I3: e-commerce, Marketplace, AdTech,Subscription, gaming, FinTech, Web3; I4:Food Delivery, Logistics, EdTech, TravelTech,  Social Media, Chatapps, Payments, Insurtech, Exchange, Blockchain\n"
-        "I1: Digital; I2: Cloud; I3: SaaS, XaaS, Security, Consulting; I4: Sales, Marketing, Analytics, Network, Security Eng, Design, HR, Finance, Cloud Compute, AI, Data Other[Propose]\n"
-        "I1: Physical; I2: Robotics; I3: Mobility, Space, VR&AR, Smart Cities, Robots, 3D Printing; I4: Autonomus Driving/Robots/Satellites/Launch\n"
-        "I1: Physical; I2: Semicon; I3: Telco, Data CenterChip Design, Fabrication, Quantum; I4: Licensing, inhouse\n"
-        "I1: Physical; I2: Energy; I3: Solar, Nuclear, Hydrogen, Batteries, Charging; I4: Materials\n"
-        "I1: Consulting; I2: Strategy; I3: Strategy, Management; I4: MBB, Big Consutling, Other\n"
-        "I1: Consulting; I2: Corporate; I3: HR, Accounting, Marketing, Research;"
-    )
+
+    system_prompt = """
+You are a helpful assistant evaluating candidate information from a resume.
+Use the function 'submit_candidate_industry_labels' to provide the candidate's:
+Reference the following Industry grid and select the best fit option.
+Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag English keywords for better sorting.
+You cannot change rows. For example, anyone in I2 Cloud must be in SaaS, XaaS, Security, or Consulting for I3.
+I1: Digital; I2: Platform; I3: e-commerce, Marketplace, AdTech,Subscription, gaming, FinTech, Web3; I4:Food Delivery, Logistics, EdTech, TravelTech,  Social Media, Chatapps, Payments, Insurtech, Exchange, Blockchain
+I1: Digital; I2: Cloud; I3: SaaS, XaaS, Security, Consulting; I4: Sales, Marketing, Analytics, Network, Security Eng, Design, HR, Finance, Cloud Compute, AI, Data Other[Propose]
+I1: Physical; I2: Robotics; I3: Mobility, Space, VR&AR, Smart Cities, Robots, 3D Printing; I4: Autonomus Driving/Robots/Satellites/Launch
+I1: Physical; I2: Semicon; I3: Telco, Data CenterChip Design, Fabrication, Quantum; I4: Licensing, inhouse
+I1: Physical; I2: Energy; I3: Solar, Nuclear, Hydrogen, Batteries, Charging; I4: Materials
+I1: Consulting; I2: Strategy; I3: Strategy, Management; I4: MBB, Big Consutling, Other
+I1: Consulting; I2: Corporate; I3: HR, Accounting, Marketing, Research;"
+"""
 
     answer = call_openai_api(
-        system_prompt, pdf_text, tools=[generate_industry_labels_tool]
+        system_prompt, pdf_text, tools=[submit_candidate_industry_labels_tool]
     )
 
     if (
@@ -279,11 +274,11 @@ def generate_industry_labels(pdf_text):
 
 
 def generate_function_labels(pdf_text):
-    generate_function_labels_tool = {
+    submit_candidate_function_labels_tool = {
         "type": "function",
         "function": {
-            "name": "generate_function_labels",
-            "description": "Generate function labels for the candidate",
+            "name": "submit_candidate_function_labels",
+            "description": "Submit function labels for the candidate",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -308,26 +303,27 @@ def generate_function_labels(pdf_text):
             },
         },
     }
-    system_prompt = (
-        "You are a helpful assistant evaluating candidate information from a resume.\n\n"
-        "Use the function 'generate_function_labels' to provide the candidate's:\n"
-        "Reference the following Function grid and select the best fit option.\n"
-        "Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag English keywords for better sorting.\n"
-        "You cannot change rows. For example, anyone in F2 Sales must be in AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other for F3.\n\n"
-        "F1: GTM; F2: Sales; F3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other\n"
-        "F1: GTM; F2: Marketing; F3: Digital, Field, Community, PR, Comms, Growth, Social, Content\n"
-        "F1: GTM; F2: Consulting/PS; F3: Delivery, Implementation, Customer Success, TAM, Pre-sales\n"
-        "F1: GTM; F2: Operations; F3: Strategy, CS, Analytics, Product, Project, Procurement, Supply Chain\n"
-        "F1: Corporate; F2: Finance & Accounting; F3: FP&A, Compensation, M&A\n"
-        "F1: Corporate; F2: HR & Admin; F3: HRBP, Recruiting, Office Manager, Onboarding, Training\n"
-        "F1: Corporate; F2: Legal & Compliance; F3: Legal, Compilance, GR, Policy\n"
-        "F1: Corporate; F2: Internal IT; F3: IT Support, Onboarding\n"
-        "F1: Product & Eng; F2: Computer Science; F3: Product, UX, SWE, QA, DevOps\n"
-        "F1: Product & Eng; F2: Physics; F3: Electrical, Mechanical, Embedded etc.\n"
-    )
+
+    system_prompt = """
+You are a helpful assistant evaluating candidate information from a resume.
+Use the function 'submit_candidate_function_labels' to provide the candidate's:
+Reference the following Function grid and select the best fit option.
+Select one at a time starting from F1, then selecting one of the options from F2, then from F3. F4 is free space for GPT to tag English keywords for better sorting.
+You cannot change rows. For example, anyone in F2 Sales must be in AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other for F3.\n
+F1: GTM; F2: Sales; F3: AE, BDM, CSM, Inside Sales, SE, Partner, Consultant, Other
+F1: GTM; F2: Marketing; F3: Digital, Field, Community, PR, Comms, Growth, Social, Content
+F1: GTM; F2: Consulting/PS; F3: Delivery, Implementation, Customer Success, TAM, Pre-sales
+F1: GTM; F2: Operations; F3: Strategy, CS, Analytics, Product, Project, Procurement, Supply Chain
+F1: Corporate; F2: Finance & Accounting; F3: FP&A, Compensation, M&A
+F1: Corporate; F2: HR & Admin; F3: HRBP, Recruiting, Office Manager, Onboarding, Training
+F1: Corporate; F2: Legal & Compliance; F3: Legal, Compilance, GR, Policy
+F1: Corporate; F2: Internal IT; F3: IT Support, Onboarding
+F1: Product & Eng; F2: Computer Science; F3: Product, UX, SWE, QA, DevOps
+F1: Product & Eng; F2: Physics; F3: Electrical, Mechanical, Embedded etc.
+"""
 
     answer = call_openai_api(
-        system_prompt, pdf_text, tools=[generate_function_labels_tool]
+        system_prompt, pdf_text, tools=[submit_candidate_function_labels_tool]
     )
 
     if (
