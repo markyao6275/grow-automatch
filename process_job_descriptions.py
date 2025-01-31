@@ -30,12 +30,16 @@ def process_job_descriptions(folder_path):
                 job_description = {"filename": pdf_path}
 
                 general_info = extract_job_general_info(pdf_text)
+                compensation_range = determine_compensation_range(
+                    general_info.get("job_level")
+                )
                 industry_labels = generate_industry_labels(pdf_text)
                 function_labels = generate_function_labels(pdf_text)
 
                 job_description.update(
                     {
                         **general_info,
+                        **compensation_range,
                         **industry_labels,
                         **function_labels,
                         "job_description_text": pdf_text,
@@ -98,21 +102,6 @@ def extract_job_general_info(pdf_text):
                         "enum": [4, 5, 6, 7, 8, 9, 10, 11, 12],
                         "description": "The level of the job description",
                     },
-                    "compensation_range": {
-                        "type": "string",
-                        "description": "The compensation range of the job description",
-                        "enum": [
-                            "8,000,000",
-                            "10,000,000",
-                            "15,000,000",
-                            "21,000,000",
-                            "26,000,000",
-                            "28,000,000",
-                            "32,000,000",
-                            "37,000,000",
-                            "42,000,000",
-                        ],
-                    },
                     "company_hq_location": {
                         "type": "string",
                         "enum": ["Japan", "Global"],
@@ -153,7 +142,6 @@ def extract_job_general_info(pdf_text):
                     "country",
                     "city",
                     "job_level",
-                    "compensation_range",
                     "company_size",
                     "company_hq_location",
                     "english_level_required",
@@ -184,13 +172,12 @@ Your goal is to identify and provide the following details by calling the functi
      - 10: RVP
      - 11: Area VP
      - 12: VP
-6. compensation_range (Required): Guess based on the job level and the company size.
-7. company_size (Required) — Must be one of:
+6. company_size (Required) — Must be one of:
    ["0-50", "51-100", "101-500", "501-1000", "1001-1500", "1501-2000", "2000+"]
-8. company_hq_location (Required) — Must be one of: ["Japan", "Global"]
-9. english_level_required (Required) — Must be one of: ["Native", "Fluent", "Intermediate", "Basic"]
-10. japanese_level_required (Required) — Must be one of: ["N2", "N3", "N4", "N5"]
-11. target_age (Required) — Must be one of: ["20s", "30s", "40s", "50s"]
+7. company_hq_location (Required) — Must be one of: ["Japan", "Global"]
+8. english_level_required (Required) — Must be one of: ["Native", "Fluent", "Intermediate", "Basic"]
+9. japanese_level_required (Required) — Must be one of: ["N2", "N3", "N4", "N5"]
+10. target_age (Required) — Must be one of: ["20s", "30s", "40s", "50s"]
 
 If you cannot infer a particular detail, guess as best as you can.
 
@@ -338,3 +325,21 @@ F1: Product & Eng; F2: Physics; F3: Electrical, Mechanical, Embedded etc.
         return None
 
     return json.loads(answer.tool_calls[0].function.arguments)
+
+
+def determine_compensation_range(job_level):
+    compensation_range = {
+        4: "6,000,000-10,000,000",
+        5: "8,000,000-12,000,000",
+        6: "12,000,000-18,000,000",
+        7: "16,000,000-26,000,000",
+        8: "22,000,000-30,000,000",
+        9: "24,000,000-32,000,000",
+        10: "30,000,000-45,000,000",
+        11: "35,000,000-50,000,000",
+        12: "47,000,000-60,000,000",
+    }
+
+    return {
+        "compensation_range": compensation_range.get(job_level, "Unknown"),
+    }
