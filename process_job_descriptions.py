@@ -93,17 +93,108 @@ def extract_job_general_info(pdf_text):
                         "type": "string",
                         "description": "The city of the job description",
                     },
+                    "job_level": {
+                        "type": "number",
+                        "enum": [4, 5, 6, 7, 8, 9, 10, 11, 12],
+                        "description": "The level of the job description",
+                    },
+                    "compensation_range": {
+                        "type": "string",
+                        "description": "The compensation range of the job description",
+                        "enum": [
+                            "8,000,000",
+                            "10,000,000",
+                            "15,000,000",
+                            "21,000,000",
+                            "26,000,000",
+                            "28,000,000",
+                            "32,000,000",
+                            "37,000,000",
+                            "42,000,000",
+                        ],
+                    },
+                    "company_hq_location": {
+                        "type": "string",
+                        "enum": ["Japan", "Global"],
+                        "description": "The company's headquarters location",
+                    },
+                    "company_size": {
+                        "type": "string",
+                        "enum": [
+                            "0-50",
+                            "51-100",
+                            "101-500",
+                            "501-1000",
+                            "1001-1500",
+                            "1501-2000",
+                            "2000+",
+                        ],
+                        "description": "The company's size",
+                    },
+                    "english_level_required": {
+                        "type": "string",
+                        "enum": ["Native", "Fluent", "Intermediate", "Basic"],
+                        "description": "The English level required for the job description",
+                    },
+                    "japanese_level_required": {
+                        "type": "string",
+                        "enum": ["N2", "N3", "N4", "N5"],
+                        "description": "The Japanese level required for the job description",
+                    },
+                    "target_age": {
+                        "type": "string",
+                        "enum": ["20s", "30s", "40s", "50s"],
+                        "description": "The target age for the job description",
+                    },
                 },
-                "required": ["company", "position", "country", "city"],
+                "required": [
+                    "company",
+                    "position",
+                    "country",
+                    "city",
+                    "job_level",
+                    "compensation_range",
+                    "company_size",
+                    "company_hq_location",
+                    "english_level_required",
+                    "japanese_level_required",
+                    "target_age",
+                ],
             },
         },
     }
 
     system_prompt = """
 You are a helpful assistant extracting job information from a job description.
-Use the function 'submit_job_general_info' to provide the candidate's:
-Company Name, Position, Country, and City.
-If you cannot infer some details, guess or say 'Unknown'.
+
+Your goal is to identify and provide the following details by calling the function 'submit_job_general_info' with these exact parameters:
+
+1. company (Required)
+2. position (Required)
+3. country (Required)
+4. city (Required)
+5. job_level (Required) — Must be one of [4, 5, 6, 7, 8, 9, 10, 11, 12].
+   Examples for job_level:
+     - 4:  Customer Support, SDR/BDR
+     - 5:  Digital Marketing, SMB
+     - 6:  Field Marketing, CSM, Solution Eng, Partner/Channel Sales, Mid Market
+     - 7:  Enterprise
+     - 8:  Head of Marketing, Head of CSM, Head of Solution Eng, Head of Partner/Channel, Sales Manager (Commercial), Director
+     - 9:  Sales Manager (Enterprise), Sr. Director
+     - 10: RVP
+     - 11: Area VP
+     - 12: VP
+6. compensation_range (Required): Guess based on the job level and the company size.
+7. company_size (Required) — Must be one of:
+   ["0-50", "51-100", "101-500", "501-1000", "1001-1500", "1501-2000", "2000+"]
+8. company_hq_location (Required) — Must be one of: ["Japan", "Global"]
+9. english_level_required (Required) — Must be one of: ["Native", "Fluent", "Intermediate", "Basic"]
+10. japanese_level_required (Required) — Must be one of: ["N2", "N3", "N4", "N5"]
+11. target_age (Required) — Must be one of: ["20s", "30s", "40s", "50s"]
+
+If you cannot infer a particular detail, guess as best as you can.
+
+Return your final result by calling the function 'submit_job_general_info' with these fields as parameters.
 """
 
     answer = call_openai_api(
