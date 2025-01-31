@@ -63,8 +63,6 @@ def parse_pdf_to_text(pdf_path, dpi=300, lang="eng"):
     # Get text using direct extraction
     direct_text = extract_text_from_pdf(pdf_path)
 
-    print(direct_text)
-
     # Combine both results with a separator
     combined_text = (
         "=== OCR EXTRACTED TEXT ===\n"
