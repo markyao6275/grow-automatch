@@ -7,6 +7,7 @@ import re
 from config import candidates_to_score_count
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
+from create_directories import create_directory, get_base_path
 
 
 buckets_table = {
@@ -394,8 +395,10 @@ def extract_score(text):
 
 def save_scored_candidates(scored_candidates, job_data):
     output_dir = "output/scored_candidates"
-    os.makedirs(output_dir, exist_ok=True)
+    base_path = get_base_path()
+    create_directory(output_dir)
     output_file = os.path.join(
+        base_path,
         output_dir,
         f"{sanitize_filename(job_data.get('company'))}_{sanitize_filename(job_data.get('position'))}_scored_candidates.csv",
     )

@@ -7,8 +7,8 @@ from process_job_descriptions import process_job_descriptions
 from score_candidates import score_candidates
 from display_ui import DisplayUI
 
-folder_containing_resumes = "./resumes"
-folder_containing_job_descriptions = "./job_descriptions"
+folder_containing_resumes = "resumes"
+folder_containing_job_descriptions = "job_descriptions"
 
 
 def start_processing():
