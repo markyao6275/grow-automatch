@@ -20,12 +20,10 @@ from PyQt6.QtWidgets import (
 from PyQt6.QtGui import QIcon, QPixmap, QFont, QFontDatabase
 from PyQt6.QtCore import Qt
 
-
 def resource_path(relative_path):
     if hasattr(sys, "_MEIPASS"):
         return os.path.join(sys._MEIPASS, relative_path)
     return os.path.join(os.path.abspath("."), relative_path)
-
 
 class DisplayUI(QWidget):
     def __init__(self, start_processing_callback):
@@ -44,9 +42,7 @@ class DisplayUI(QWidget):
             self.setFont(QFont(font_family, 12))
         else:
             print("Failed to load Russo One font.")
-
-        os.makedirs("resumes", exist_ok=True)
-        os.makedirs("job_descriptions", exist_ok=True)
+        
 
         self.setWindowTitle("Grow Match")
         self.setGeometry(100, 100, 600, 400)
