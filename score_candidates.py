@@ -5,6 +5,7 @@ import pandas as pd
 import re
 
 from config import candidates_to_score_count
+from math import ceil
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 
@@ -31,27 +32,27 @@ buckets_table = {
 scores_table = {
     "Too Basic": {
         "min": 0,
-        "max": 30,
+        "max": 10,
     },
     "Iffy Match": {
-        "min": 31,
-        "max": 50,
+        "min": 10,
+        "max": 20,
     },
     "Good Match": {
-        "min": 51,
-        "max": 70,
+        "min": 20,
+        "max": 40,
     },
     "Strong Match": {
-        "min": 71,
-        "max": 84,
+        "min": 40,
+        "max": 69,
     },
     "Perfect Match": {
-        "min": 85,
+        "min": 70,
         "max": 100,
     },
     "Out of the box": {
-        "min": 60,
-        "max": 75,
+        "min": 15,
+        "max": 35,
     },
 }
 
@@ -80,7 +81,7 @@ def score_candidates(job_data, processed_resumes_file):
                 i4_and_f4_points = get_I4_and_F4_points(candidate_data, job_data)
                 candidate_data["bucket_score"] = initial_score + i4_and_f4_points
 
-                if candidate_data["bucket_score"] >= 85:
+                if candidate_data["bucket_score"] >= 70:
                     candidate_data["bucket"] = "Perfect Match"
 
                 if candidate_data["bucket_score"] >= 71 or (
@@ -169,35 +170,31 @@ def get_I4_and_F4_points(candidate_data, job_data):
         # Convert to sets so duplicates in either list won't affect bracket or scoring
         unique_candidate_tags = set(candidate_tags)
         unique_job_tags = set(job_tags)
+        max_points = 15
 
         points = 0
         job_tags_count = len(unique_job_tags)
 
-        # No job tags => 8 points
+        # No job tags => max_points
         if job_tags_count == 0:
-            points = 8
-        # Exactly 1 job tag => if it matches, award 8
+            points = max_points
+        # Exactly 1 job tag => if it matches, award max_points
         elif job_tags_count == 1:
             if unique_job_tags.pop() in unique_candidate_tags:
-                points = 8
-        # Exactly 2 job tags => each matching tag awards 4
+                points = max_points
+        # Exactly 2 job tags => each matching tag awards max_points/2
         elif job_tags_count == 2:
             for tag in unique_job_tags:
                 if tag in unique_candidate_tags:
-                    points += 4
-        # Exactly 3 job tags => each matching tag awards 3
-        elif job_tags_count == 3:
-            for tag in unique_job_tags:
-                if tag in unique_candidate_tags:
-                    points += 3
-        # More than 3 job tags => each matching tag awards 2
+                    points += ceil(max_points / 2)
+        # More than 2 job tags => each matching tag awards max_points/3
         else:
             for tag in unique_job_tags:
                 if tag in unique_candidate_tags:
-                    points += 2
+                    points += ceil(max_points / 3)
 
-        # Cap the points at 8
-        return min(points, 8)
+        # Cap the points at max_points
+        return min(points, max_points)
 
     candidate_i4 = candidate_data.get("i4")
     candidate_f4 = candidate_data.get("f4")
@@ -221,9 +218,9 @@ def get_rule_based_score(candidate_data, job_data):
     # Location
     if candidate_data.get("country") != "Japan":
         if candidate_data.get("japanese_level") == "Native":
-            rule_based_score -= 10
+            rule_based_score -= 40
         else:
-            rule_based_score -= 50
+            rule_based_score -= 90
 
     # Age
     age_difference = abs(
@@ -244,18 +241,18 @@ def get_rule_based_score(candidate_data, job_data):
         rule_based_score -= 5
     elif candidate_data.get("japanese_level") == "Business":
         rule_based_score -= 15
-    elif candidate_data.get("japanese_level") == "Reading/Writing":
-        rule_based_score -= 20
-    elif candidate_data.get("japanese_level") == "None/Unknown":
-        rule_based_score -= 30
+    elif (
+        candidate_data.get("japanese_level") == "Reading/Writing"
+        or candidate_data.get("japanese_level") == "None"
+    ):
+        rule_based_score -= 80
 
     # English Level
     if job_data.get("company_hq_location") == "Japan":
-        if (
-            candidate_data.get("english_level") == "Native"
-            or candidate_data.get("english_level") == "Fluent"
-        ):
+        if candidate_data.get("english_level") == "Native":
             rule_based_score += 5
+        elif candidate_data.get("english_level") == "Fluent":
+            rule_based_score += 4
         elif candidate_data.get("english_level") == "Business":
             rule_based_score += 3
         elif candidate_data.get("english_level") == "Reading/Writing":

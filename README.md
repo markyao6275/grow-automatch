@@ -6,10 +6,12 @@ A tool for matching resumes with job descriptions.
 
 1. Create a `/job_descriptions` folder to store your job posting files
 2. Create a `/resumes` folder to store candidate resume files
-3. Create virtual environment
-4. Activate virtual environment
-5. Install dependencies
-6. Run `python script.py`
+3. Create a `/output` folder to store the output files
+4. Create a `/output/scored_candidates` folder to store the CSVs with the scored candidates
+5. Create virtual environment
+6. Activate virtual environment
+7. Install dependencies
+8. Run `python script.py`
 
 ## Build Instructions
 
