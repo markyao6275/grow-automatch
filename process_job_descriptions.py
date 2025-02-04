@@ -124,7 +124,13 @@ def extract_job_general_info(pdf_text):
                     },
                     "english_level_required": {
                         "type": "string",
-                        "enum": ["Native", "Fluent", "Intermediate", "Basic"],
+                        "enum": [
+                            "Native",
+                            "Fluent",
+                            "Business",
+                            "Reading/Writing",
+                            "None",
+                        ],
                         "description": "The English level required for the job description",
                     },
                     "japanese_level_required": {
@@ -184,8 +190,7 @@ Your goal is to identify and provide the following details by calling the functi
    ["0-10", "10-50", "50-100", "100+"]
 7. employee_count_in_japan (Required) — Must be one of: ["0-10", "10-50", "50-100", "100+"]
 8. company_hq_location (Required) — Must be one of: ["Japan", "Global"]
-9. english_level_required (Required) — Must be one of: ["Native", "Fluent", "Intermediate", "Basic"]
-TODO: Specify JLPT
+9. english_level_required (Required) — Must be one of:  ["Native", "Fluent", "Business", "Reading/Writing", "None"]
 10. japanese_level_required (Required) — Must be one of: ["Native", "Fluent", "Business", "Reading/Writing", "None"]
 11. target_age (Required)
 
