@@ -250,8 +250,8 @@ Use the function 'submit_candidate_industry_labels' to provide the candidate's:
 Reference the following Industry grid and select the best fit option.
 Select one at a time starting from I1, then selecting one of the options from I2, then from I3. I4 is free space for GPT to tag English keywords for better sorting.
 You cannot change rows. For example, anyone in I2 Cloud must be in SaaS, XaaS, Security, or Consulting for I3.
-I1: Digital; I2: Platform; I3: e-commerce, Marketplace, AdTech,Subscription, gaming, FinTech, Web3; I4:Food Delivery, Logistics, EdTech, TravelTech,  Social Media, Chatapps, Payments, Insurtech, Exchange, Blockchain
 I1: Digital; I2: Cloud; I3: SaaS, XaaS, Security, Consulting; I4: Sales, Marketing, Analytics, Network, Security Eng, Design, HR, Finance, Cloud Compute, AI, Data Other[Propose]
+I1: Digital; I2: Platform; I3: e-commerce, Marketplace, AdTech, Subscription, Gaming, FinTech, Web3; I4:Food Delivery, Logistics, EdTech, TravelTech,  Social Media, Chatapps, Payments, Insurtech, Exchange, Blockchain
 I1: Physical; I2: Robotics; I3: Mobility, Space, VR&AR, Smart Cities, Robots, 3D Printing; I4: Autonomus Driving/Robots/Satellites/Launch
 I1: Physical; I2: Semicon; I3: Telco, Data CenterChip Design, Fabrication, Quantum; I4: Licensing, inhouse
 I1: Physical; I2: Energy; I3: Solar, Nuclear, Hydrogen, Batteries, Charging; I4: Materials
