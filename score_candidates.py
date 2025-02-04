@@ -13,13 +13,13 @@ from openai.types.chat import ChatCompletionToolParam
 buckets_table = {
     ("F1", "I1"): "Too Basic",
     ("F1", "I2"): "Iffy Match",
-    ("F1", "I3"): "Iffy Match",
+    ("F1", "I3"): "Okay",
     ("F1", "I4"): "Iffy Match",
     ("F2", "I1"): "Iffy Match",
     ("F2", "I2"): "Good Match",
     ("F2", "I3"): "Good Match",
     ("F2", "I4"): "Out of the box",
-    ("F3", "I1"): "Iffy Match",
+    ("F3", "I1"): "Okay",
     ("F3", "I2"): "Good Match",
     ("F3", "I3"): "Strong Match",
     ("F3", "I4"): "Perfect Match",
@@ -38,8 +38,12 @@ scores_table = {
         "min": 10,
         "max": 20,
     },
-    "Good Match": {
+    "Okay": {
         "min": 20,
+        "max": 30,
+    },
+    "Good Match": {
+        "min": 30,
         "max": 40,
     },
     "Strong Match": {
@@ -223,14 +227,19 @@ def get_rule_based_score(candidate_data, job_data):
             rule_based_score -= 90
 
     # Age
-    age_difference = abs(
-        int(re.search(r"\d+", candidate_data.get("age")).group())
-        - job_data.get("target_age")
-    )
-    if age_difference > 3:  # Only apply penalty if outside the +/-3 year range
-        rule_based_score -= (
-            age_difference - 3
-        ) * 2  # -2 points per year beyond the 3-year range
+    candidate_age = int(re.search(r"\d+", candidate_data.get("age")).group())
+    job_target_age = int(job_data.get("target_age"))
+    age_difference = abs(candidate_age - job_target_age)
+    # Only apply penalty if outside the +/- 6 year range
+    if age_difference > 6:
+        # -1 point every 3 years beyond the 6-year range
+        rule_based_score -= (age_difference - 6) // 3
+    if candidate_age > 60:
+        rule_based_score -= 20
+    elif candidate_age > 55:
+        rule_based_score -= 10
+    elif candidate_age > 50:
+        rule_based_score -= 5
 
     # Gender
     if candidate_data.get("gender") == "Female":
