@@ -85,6 +85,8 @@ export async function scoreCandidates(
         rule_based_score: 0,
         final_score: 0,
       };
+
+
       
       if (bucket.bucket) {
         // Get initial score from bucket
@@ -141,6 +143,7 @@ function determineBucket(candidate: CandidateProfile, jobData: JobDescription): 
     F2: jobData.F2,
     F3: jobData.F3,
   };
+
   
   // Find the last matching level for a category
   function getFinalMatchedLevel(category: 'I' | 'F'): string {

@@ -29,7 +29,7 @@ export const OPENAI_SETTINGS = {
 export const FILE_RESTRICTIONS = {
   allowedTypes: ['application/pdf'],
   maxSizeMB: 10, // Maximum file size in MB
-  maxFiles: 20, // Maximum number of files per upload
+  maxFiles: 999, // Maximum number of files per upload
 };
 
 // Path configuration

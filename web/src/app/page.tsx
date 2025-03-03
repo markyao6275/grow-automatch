@@ -7,6 +7,8 @@ import LoadingSpinner from '@/components/LoadingSpinner';
 import CandidatesTable from '@/components/CandidatesTable';
 import { CandidateProfile, JobDescription, ScoredCandidate } from '@/types';
 import { DEFAULT_CANDIDATES_TO_SCORE } from '@/lib/config';
+import candidatesJson from '@/mocks/candidates.json';
+import jobDescriptionsJson from '@/mocks/asana.json';
 
 export default function Home() {
   // State for file uploads
@@ -39,23 +41,25 @@ export default function Home() {
     setProcessingResumes(true);
     
     try {
-      const formData = new FormData();
-      resumeFiles.forEach(file => {
-        formData.append('files', file);
-      });
+      // const formData = new FormData();
+      // resumeFiles.forEach(file => {
+      //   formData.append('files', file);
+      // });
       
-      const response = await fetch('/api/process-resumes', {
-        method: 'POST',
-        body: formData,
-      });
+      // const response = await fetch('/api/process-resumes', {
+      //   method: 'POST',
+      //   body: formData,
+      // });
       
-      const data = await response.json();
+      // const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to process resumes');
-      }
+      // if (!response.ok) {
+      //   throw new Error(data.error || 'Failed to process resumes');
+      // }
       
-      setCandidates(data.candidateProfiles);
+      // setCandidates(data.candidateProfiles);
+      setCandidates(candidatesJson)
+      setProcessingResumes(false);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Failed to process resumes');
     } finally {
@@ -74,21 +78,24 @@ export default function Home() {
     setProcessingJobDescriptions(true);
     
     try {
-      const formData = new FormData();
-      jobDescriptionFiles.forEach(file => {
-        formData.append('files', file);
-      });
+      // const formData = new FormData();
+      // jobDescriptionFiles.forEach(file => {
+      //   formData.append('files', file);
+      // });
       
-      const response = await fetch('/api/process-job-descriptions', {
-        method: 'POST',
-        body: formData,
-      });
+      // const response = await fetch('/api/process-job-descriptions', {
+      //   method: 'POST',
+      //   body: formData,
+      // });
       
-      const data = await response.json();
+      // const data = await response.json();
       
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to process job descriptions');
-      }
+      // if (!response.ok) {
+      //   throw new Error(data.error || 'Failed to process job descriptions');
+      // }
+
+      const data = { jobDescriptions: jobDescriptionsJson}
+
       
       setJobDescriptions(data.jobDescriptions);
       if (data.jobDescriptions.length > 0) {
@@ -180,17 +187,18 @@ export default function Home() {
       <header className="bg-white shadow-sm py-4">
         <div className="container mx-auto px-4 flex items-center justify-between">
           <div className="flex items-center">
-            <Image 
+            {/* <Image 
               src="/grow_logo.png" 
               alt="Grow Logo" 
-              width={100} 
-              height={40} 
+              width={40} 
+              height={100} 
               className="mr-2"
-            />
-            <h1 className="text-xl font-bold text-blue-900">Grow AutoMatch</h1>
+            /> */}
+            <h1 className="text-xl font-bold text-blue-900">Grow </h1>
           </div>
           <div className="text-sm text-gray-500">
-            AI-powered resume matching
+            {/* TODO: Navbar */}
+            
           </div>
         </div>
       </header>
@@ -221,7 +229,7 @@ export default function Home() {
         
         {/* Options & Actions */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
-          <h2 className="text-lg font-semibold mb-4">Options</h2>
+          <h2 className="text-lg font-semibold mb-4 text-black">Options</h2>
           
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -317,10 +325,10 @@ export default function Home() {
         {/* Results Section */}
         {scoredCandidates.length > 0 && selectedJobDescription && (
           <div className="bg-white rounded-lg shadow-md p-6 overflow-hidden">
-            <h2 className="text-lg font-semibold mb-4">Results</h2>
+            <h2 className="text-lg font-semibold mb-4 text-black">Results</h2>
             
             <CandidatesTable 
-              candidates={scoredCandidates}
+              candidates={scoredCandidates.sort((a, b) => b.final_score - a.final_score)}
               position={selectedJobDescription.position}
               company={selectedJobDescription.company}
             />

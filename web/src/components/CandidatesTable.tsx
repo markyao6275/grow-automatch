@@ -20,6 +20,7 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({
     );
   }
 
+
   // Get bucket color class based on score
   const getBucketColorClass = (bucket: string | undefined) => {
     switch (bucket) {
@@ -48,13 +49,13 @@ const CandidatesTable: React.FC<CandidatesTableProps> = ({
     if (score >= 50) return 'text-blue-600';
     if (score >= 30) return 'text-yellow-600';
     if (score >= 0) return 'text-red-600';
-    return 'text-gray-600';
+    return 'text-black';
   };
 
   return (
     <div className="overflow-x-auto">
       <div className="mb-4">
-        <h2 className="text-xl font-semibold">{position} at {company}</h2>
+        <h2 className="text-xl font-semibold text-black">{position} at {company}</h2>
         <p className="text-sm text-gray-600">{candidates.length} candidates matched</p>
       </div>
       
