@@ -6,6 +6,7 @@ from process_resumes import process_resumes
 from process_job_descriptions import process_job_descriptions
 from score_candidates import score_candidates
 from display_ui import DisplayUI
+from create_directories import create_directories
 
 folder_containing_resumes = "./resumes"
 folder_containing_job_descriptions = "./job_descriptions"
@@ -34,6 +35,7 @@ def start_processing():
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
+    create_directories()
 
     # Create the DisplayUI instance and pass the start_processing function
     window = DisplayUI(start_processing)
