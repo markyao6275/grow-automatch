@@ -6,7 +6,9 @@ from datetime import datetime
 from openai_api import call_openai_api
 from openai.types.chat import ChatCompletionToolParam
 from pdf_parser import parse_pdf_to_text
+from create_directories import create_directory, get_base_path
 
+base_path = get_base_path()
 
 def process_resumes(folder_path):
     """
@@ -17,6 +19,7 @@ def process_resumes(folder_path):
     """
     # Initialize list to store all resumes
     candidate_profiles = []
+    folder_path = os.path.join(base_path, folder_path)
 
     for filename in os.listdir(folder_path):
         if filename.lower().endswith(".pdf"):
@@ -47,12 +50,12 @@ def process_resumes(folder_path):
                 print(f"Error calling OpenAI API for {filename}: {e}")
 
     # Create output directory if it doesn't exist
-    output_dir = "output"
-    os.makedirs(output_dir, exist_ok=True)
+    create_directory("output")
 
-    # Generate timestamp filename
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    output_file = os.path.join(output_dir, f"resumes_{timestamp}.csv")
+    
+    # Get the correct path
+    output_file = os.path.join(folder_path, f"resumes_{timestamp}.csv")
 
     # Write candidate_profiles to CSV file
     if candidate_profiles:

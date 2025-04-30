@@ -19,6 +19,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtGui import QIcon, QPixmap, QFont, QFontDatabase
 from PyQt6.QtCore import Qt
+from create_directories import create_directory
 
 
 def resource_path(relative_path):
@@ -45,8 +46,8 @@ class DisplayUI(QWidget):
         else:
             print("Failed to load Russo One font.")
 
-        os.makedirs("resumes", exist_ok=True)
-        os.makedirs("job_descriptions", exist_ok=True)
+        create_directory("resumes")
+        create_directory("job_descriptions")
 
         self.setWindowTitle("Grow Match")
         self.setGeometry(100, 100, 600, 400)
