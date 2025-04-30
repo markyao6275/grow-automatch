@@ -5,6 +5,8 @@ from pdfminer.high_level import extract_text_to_fp
 from pdfminer.layout import LAParams
 from pdf2image import convert_from_path
 
+# For Windows users, you may need to specify the Tesseract location
+# pytesseract.pytesseract.tesseract_cmd = "C:\\Program Files\\Tesseract-OCR\\tesseract.exe"
 
 def get_text_using_ocr(pdf_path, dpi=300, lang="eng"):
     """
